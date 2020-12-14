@@ -1,4 +1,4 @@
-(ns timeing.duration
+(ns kalenders.duration
   (:import [java.time Duration]))
 
 

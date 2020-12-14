@@ -1,7 +1,7 @@
-(ns timeing.daily
-  (:require [timeing.time :as time]
-            [timeing.duration :as duration]
-            [timeing.searching :as searching]))
+(ns kalenders.daily
+  (:require [kalenders.duration :as duration]
+            [kalenders.searching :as searching]
+            [kalenders.time :as time]))
 
 (defn- previous-day [time]
   (time/add-days time -1))

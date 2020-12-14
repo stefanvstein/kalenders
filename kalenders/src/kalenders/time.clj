@@ -1,4 +1,4 @@
-(ns timeing.time
+(ns kalenders.time
   (:import [java.time ZonedDateTime Duration Instant ZoneId LocalTime DayOfWeek YearMonth MonthDay LocalDate LocalDateTime DateTimeException ]
            [java.time.zone ZoneRulesException]
            [java.time.temporal ChronoUnit]

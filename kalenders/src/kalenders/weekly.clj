@@ -1,6 +1,6 @@
-(ns timeing.weekly
-  (:require [timeing.time :as time]
-            [timeing.duration :as duration])
+(ns kalenders.weekly
+  (:require [kalenders.duration :as duration]
+            [kalenders.time :as time])
   (:import java.time.DayOfWeek))
 
 (defn- next-week [time]

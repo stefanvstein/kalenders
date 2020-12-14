@@ -1,6 +1,6 @@
-(ns timeing.searching
-  (:require [timeing.time :as time]
-            [timeing.duration :as duration]))
+(ns kalenders.searching
+  (:require [kalenders.duration :as duration]
+            [kalenders.time :as time]))
 
 (defn- end-of [start duration]
   (time/add-duration start duration))

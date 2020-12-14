@@ -1,14 +1,11 @@
-(ns timeing.core-test
-  (:import [java.time DayOfWeek])
-  (:require [clojure.test :refer :all]
-            [timeing.core :as c]
-            [timeing.time :as t]
-            [timeing.duration :as duration]
-            [clojure.pprint :refer [pprint]])
-  )
+(ns kalenders.core-test
+  (:require [clojure.pprint :refer [pprint]]
+            [clojure.test :refer :all]
+            [kalenders.core :as c]
+            [kalenders.duration :as duration]
+            [kalenders.time :as t])
+  (:import java.time.DayOfWeek))
 
-
-        
 (deftest once-test
   (let [start (t/now)
         duration (duration/of-seconds 2)

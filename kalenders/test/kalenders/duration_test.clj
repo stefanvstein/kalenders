@@ -1,7 +1,7 @@
-(ns timeing.duration-test
-  (:require [timeing.duration :as duration]
-            [clojure.test :refer :all]
-            [timeing.time :as time]))
+(ns kalenders.duration-test
+  (:require [clojure.test :refer :all]
+            [kalenders.duration :as duration]
+            [kalenders.time :as time]))
 
 (deftest minutes (let [a (duration/of-seconds 60)
                        b (duration/add-minutes duration/none 1)
