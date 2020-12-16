@@ -90,8 +90,10 @@
 (deftest with-year
   (is (= (time/of 2025 1 2 3 4 5)
          (time/with-year (time/of 2020 1 2 3 4 5) 2025)))
-  #_(Needs timezone)
-  #_(try (time/with-year (time/of 1975 4 6 2 0 1) 1980)
+  
+  (try (time/with-year (time/with-time-zone
+                         (time/of 1975 4 6 2 0 1)
+                         (time/find-time-zone "stockholm")) 1980)
        (is (not "hit"))
        (catch clojure.lang.ExceptionInfo e
          (is (= {:value 1980,
@@ -105,7 +107,8 @@
                  :conflict :year}
                 (select-keys (ex-data e) [:value :conflict])))
          (is (string/includes? (ex-message e) "valid day")))))
-
+(def stockholm (time/find-time-zone "stockholm"))
+(def moscow (time/find-time-zone "moscow"))
 
 (deftest with-month
   (is (= (time/of 2020 10 2 3 4 5)
@@ -117,14 +120,16 @@
                   :conflict :month}
                  (select-keys (ex-data e) [:value :conflict])))
          (is (string/includes? (ex-message e) "valid day"))))
-  #_(Needs time zone)
-  #_(try (time/with-month (time/of 1980 3 6 2 0 1) 4)
-             (is (not "hit"))
-             (catch clojure.lang.ExceptionInfo e
-               (is (= {:value 4,
-                       :conflict :month}
-                      (select-keys (ex-data e) [:value :conflict])))
-               (is (string/includes? (ex-message e) "gap")))))
+  
+  (try (time/with-month
+         (time/with-time-zone (time/of 1980 3 6 2 0 1) stockholm)
+         4)
+       (is (not "hit"))
+       (catch clojure.lang.ExceptionInfo e
+         (is (= {:value 4,
+                 :conflict :month}
+                (select-keys (ex-data e) [:value :conflict])))
+         (is (string/includes? (ex-message e) "gap")))))
 
 (deftest with-day
   (is (= (time/of 2020 1 31 3 4 5)
@@ -136,8 +141,8 @@
                  :conflict :day}
                 (select-keys (ex-data e) [:value :conflict])))
          (is (string/includes? (ex-message e) "valid day"))))
-  #_(Needs timezone)
-  #_(try (time/with-day (time/of 1980 4 5 2 0 1) 6)
+
+  (try (time/with-day (time/with-time-zone (time/of 1980 4 5 2 0 1) stockholm) 6)
            (is (not "hit"))
            (catch clojure.lang.ExceptionInfo e
              (is (= {:value 6,
@@ -155,8 +160,8 @@
                  :conflict :hour}
                 (select-keys (ex-data e) [:value :conflict])))
          (is (string/includes? (ex-message e) "valid hour"))))
-  #_(Needs timezone)
-  #_(try (time/with-hour (time/of 1980 4 6 1 0 1) 2)
+
+  (try (time/with-hour (time/with-time-zone (time/of 1980 4 6 1 0 1) stockholm) 2)
        (is (not "hit"))
        (catch clojure.lang.ExceptionInfo e
          (is (= {:value 2,
@@ -214,13 +219,13 @@
                  :conflict :nano}
                 (select-keys (ex-data e) [:value :conflict])))
          (is (string/includes? (ex-message e) "valid nanos")))))
-#_(This one needs timezone awareness)
-#_(deftest with-time-part ()
+
+(deftest with-time-part ()
       (is (= (time/of 2020 10 01 13 44 55)
              (time/with-time-part
-               (time/of 2020 10 01 20 30 00)
+               (time/with-time-zone (time/of 2020 10 01 20 30 00) stockholm)
                (time/time-part 13 44 55))))
-      (let [[from to] (first (time/transitions (time/of 2020 01 01)))
+  (let [[from to] (first (time/transitions (time/with-time-zone (time/of 2020 01 01) stockholm)))
             hole (-> (time/add-minutes (time/time-part-of from)
                                        15)
                      (time/just-after))]
@@ -364,10 +369,10 @@
       (catch clojure.lang.ExceptionInfo e
         (is (and (string/includes? (ex-message e) ":birds")))))))
 
-#_(Needs time zone)
-#_(deftest overlapp
+
+(deftest overlapp
       (let [dump (fn [q text ] (println (str text q)) q)
-            [from to] (first (time/transitions (time/of 2020 06 01)))]
+            [from to] (first (time/transitions (time/with-time-zone (time/of 2020 06 01) stockholm)))]
         (is (= (time/time-part-of to)
                (-> (time/just-after from)
                    (time/with-later-at-overlap)

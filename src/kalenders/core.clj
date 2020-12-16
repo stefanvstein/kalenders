@@ -1,7 +1,13 @@
 (ns kalenders.core
-  "A library for occurrences in time. A occurrence has a begining and a duration. Overlapping occurences are merged into a larger occurence.
-   The core occurences function creates sequence of occurences based on a definition and a timestamp, starting with the ongoing occurence or next future occurence in relation to the timestamp, followed by the chronologic continuing.
-   A definition is a function that produces a [start-time duration] from a timestamp. Definitions can be combined to produce complex definitions of occurrence sequences"
+  "A library for occurrences in time. A occurrence has a begining and a
+  duration. Overlapping occurences are merged into a larger occurence.
+  The core occurences function creates sequence of occurences based on
+  a definition and a timestamp, starting with the ongoing occurence or
+  next future occurence in relation to the timestamp, followed by the
+  chronologic continuing.
+  A definition is a function that produces a [start-time duration] from
+  a timestamp. Definitions can be combined to produce complex
+  definitions of occurrence sequences"
   (:require [kalenders.daily :as daily]
             [kalenders.duration :as duration]
             [kalenders.searching :as searching]

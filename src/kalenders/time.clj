@@ -399,8 +399,21 @@
                       {:value date-part
                        :conflict :date-part})))))
 
-(defn with-time-zone [time time-zone])
-(defn adjust-to-timezone [time time-zone])
+(defn with-time-zone [time time-zone]
+  (let [datetime (. time toLocalDateTime)
+        value (. time withZoneSameLocal time-zone)
+        datetime-of-value (. value toLocalDateTime)]
+    (if (= datetime datetime-of-value)
+      value
+      (throw (ex-info (str datetime " is not valid in "
+                           time-zone " and would become "
+                           datetime-of-value ".")
+                      {:value time-zone
+                       :conflict :time-zone
+                       :time time})))))
+
+(defn adjust-to-timezone [time time-zone]
+  (. time withZoneSameInstant time-zone))
 
 (defn default-time-zone []
   (ZoneId/systemDefault))
@@ -521,7 +534,7 @@
         (DayOfWeek/of x)
         (string? x)
         (DayOfWeek/from x)))
-(defn daysOfMonth [time]
+(defn days-of-month [time]
   (-> (YearMonth/from time)
       (. lengthOfMonth)))
 (defn first-day-of-month [time]
