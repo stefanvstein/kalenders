@@ -221,7 +221,7 @@
          (is (string/includes? (ex-message e) "valid nanos")))))
 
 (deftest with-time-part ()
-      (is (= (time/of 2020 10 01 13 44 55)
+  (is (= (time/with-time-zone (time/of 2020 10 01 13 44 55) stockholm)
              (time/with-time-part
                (time/with-time-zone (time/of 2020 10 01 20 30 00) stockholm)
                (time/time-part 13 44 55))))
