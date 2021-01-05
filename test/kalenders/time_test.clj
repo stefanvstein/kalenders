@@ -2,21 +2,22 @@
   (:require [clojure.string :as string]
             [clojure.test :refer :all]
             [kalenders.duration :as duration]
-            [kalenders.time :as time]))
+            [kalenders.time :as time]
+            [kalenders.test-macros :refer :all]))
 
 (deftest epoch-now
   (is (time/ordered? [time/epoch (time/now) (time/now)])))
 
 (deftest test-with-year
-  (is (= [2019 02 28]
-         (time/year-month-day (time/with-year (time/of 2020 02 28 0 0 0)
-                             2019))))
+  (is= [2019 02 28]
+       (time/year-month-day (time/with-year (time/of 2020 02 28 0 0 0)
+                              2019)))
   )
 (deftest of-y-m-d-h-m-s-n
   (let [time (time/add-nanos (time/of 2020 1 2 3 4 5)
                           6000007)]
-    (is (= [2020 1 2] (time/year-month-day time)))
-    (is (= [3 4 5] (time/hour-minute-second time)))
+    (is= [2020 1 2] (time/year-month-day time) "Just the y m and d")
+    (is= [3 4 5] (time/hour-minute-second time))
     (is (= [3 4 5 6] (time/hour-minute-second-millis time)))
     (is (= [3 4 5 6000007] (time/hour-minute-second-nanos time)))
     (time/of 2020 12)))
@@ -27,7 +28,16 @@
     (is (= a (time/of 2020 1 1 0)))
     (is (= a (time/of 2020 1 1)))
     (is (= a (time/of 2020 1)))
-    (is (= a (time/of 2020)))))
+    (is (= a (time/of 2020))))
+  (is (= (time/of 2021 2 28 0 0 0)
+         (time/of 2021 2 31 0 0 0 {:adjust :true})))
+  (is (= (time/of 2021 2 28 0 0 0)
+         (time/of 2021 2 29 0 0 0 {:adjust :true :month-days true})))
+  (try
+    (time/of 2021 2 31 0 0 0 {:adjust :true :month-days true})
+    (is (not "found"))
+    (catch clojure.lang.ExceptionInfo e
+         )))
 
 (deftest ordering
   (let [a (time/of 2020 1 2 3 4 5)
@@ -107,7 +117,9 @@
                  :conflict :year}
                 (select-keys (ex-data e) [:value :conflict])))
          (is (string/includes? (ex-message e) "valid day")))))
+
 (def stockholm (time/find-time-zone "stockholm"))
+
 (def moscow (time/find-time-zone "moscow"))
 
 (deftest with-month
@@ -148,7 +160,23 @@
              (is (= {:value 6,
                      :conflict :day}
                     (select-keys (ex-data e) [:value :conflict])))
-             (is (string/includes? (ex-message e) "gap")))))
+             (is (string/includes? (ex-message e) "gap"))))
+  (is (= (time/of 2021 02 28) (time/with-day (time/of 2021 02 01) 30 {:adjust true})))
+  (is (= (time/of 2021 02 28) (time/with-day (time/of 2021 02 01) 29 {:adjust true :month-days true})))
+  (try (time/with-day (time/of 2021 2 01) 30 {:adjust true :month-days true})
+       (is (not "hit"))
+       (catch clojure.lang.ExceptionInfo e
+         (is (= {:value 30,
+                 :conflict :day}
+                (select-keys (ex-data e) [:value :conflict])))
+         (is (string/includes? (ex-message e) "Feb"))))
+  (try (time/with-day (time/of 2021 2 01) 32 {:adjust true})
+       (is (not "hit"))
+       (catch clojure.lang.ExceptionInfo e
+         (is (= {:value 32,
+                 :conflict :day}
+                (select-keys (ex-data e) [:value :conflict])))
+         (is (string/includes? (ex-message e) "no month")))))
 
 (deftest with-hour
   (is (= (time/of 2020 1 2 23 4 5)
@@ -348,6 +376,50 @@
          (is (and (string/includes? (ex-message e) "valid")
                   (string/includes? (ex-message e) "day"))))))
 
+(deftest with-time-part
+  (is= (time/of 2010 01 01 10 30 02)
+       (time/with-time-part
+         (time/of 2010 01 01 01 01 01)
+         (time/time-part 10 30 02)))
+  (try (time/with-time-part
+         (time/with-time-zone
+           (time/of 1980 4 6 1 0 0)
+           stockholm)
+         (time/time-part 2 10 0))
+       (is (not "hit"))
+       (catch clojure.lang.ExceptionInfo _)))
+
+(deftest with-date-part
+  (is= (time/of 2011 06 06 10 30 02)
+       (time/with-date-part
+         (time/of 2010 01 01 10 30 02)
+         (time/date-part 2011 06 06)))
+  (try (time/with-date-part
+         (time/of 2010 01 01 10 30 02)
+         (time/date-part 2021 02 29))
+       (is (not "hit"))
+       (catch clojure.lang.ExceptionInfo _))
+  (is= (time/of 2021 02 28 10 30 02)
+       (time/with-date-part
+         (time/of 2010 01 01 10 30 02)
+         (time/date-part 2021 02 29 {:adjust 1})))
+  
+  (try (time/with-date-part
+         (time/with-time-zone
+           (time/of 2010 01 01 02 10 02) stockholm)
+         (time/date-part 1980 4 6))
+       (is (not "hit"))
+       (catch clojure.lang.ExceptionInfo e
+         (is (string/includes? (ex-message e) "adjusted"))))
+  (is= (time/of 1980 04 06 03 30 02)
+       (time/with-date-part
+         (time/of 2010 01 01 02 30 02)
+         (time/date-part 1980 4 6 {:adjust 1})
+         {:adjust true}))
+  )
+
+ 
+
 
 (deftest truncate
   (let [a (time/of 2121 10 21 13 14 15)
@@ -384,3 +456,69 @@
                    (time/with-earlier-at-overlap )
                    (time/time-part-of))))))
 
+(deftest with-time-zone
+  (let [v (-> (time/of 2020 01 01 00 00 00)
+              (time/with-time-zone stockholm))]
+    (is= (time/time-part 00 00 00) (time/time-part-of v))
+    (is= stockholm (time/time-zone-of v)))
+  (try (-> (time/of-time-zone 1980 4 6 2 30 0 moscow)
+           (time/with-time-zone stockholm))
+       (is (not "hit"))
+       (catch clojure.lang.ExceptionInfo e
+         (is (and (string/includes? (ex-message e) "not valid")))))
+  (-> (time/of-time-zone 2010 1 1 1 30 0 moscow)
+      (time/with-time-zone stockholm)
+      (is= (time/of-time-zone 2010 1 1 1 30 0 stockholm))))
+
+(deftest adjust-to-time-zone
+  (let [v (-> (time/of-time-zone 2020 01 01 00 00 00 stockholm)
+              (time/adjust-to-time-zone moscow))]
+    (is= (time/time-part 02 00 00) (time/time-part-of v))
+    (is= moscow (time/time-zone-of v))))
+
+(deftest default-time-zone
+  (is (time/default-time-zone)))
+
+
+(deftest day-of-week
+  (let [d (time/day-of-week (time/of-time-zone 2000 01 01 01 01 01 stockholm))]
+    (is= time/saturday d)
+    (is (time/day-of-week? d))
+    (is= 6 (time/day-of-week-nr d))
+    (is= time/sunday (time/day-of-week-from 7))
+    (is= time/sunday (time/day-of-week-from "SUNDAY"))))
+
+(deftest days
+  (let [a-day-in-jan (time/of 2017 01 05 10 00 01)]
+    (is= (time/of 2017 01 01 10 0 01)
+         (time/first-day-of-month a-day-in-jan))
+    (is= (time/of 2017 01 31 10 0 01)
+         (time/last-day-of-month a-day-in-jan))
+    (is= (time/of 2017 01 01 00 00 00)
+         (time/begining-of-month a-day-in-jan))
+    (is= (time/just-before (time/of 2017 02 01 00 00 00))
+         (time/end-of-month a-day-in-jan))
+    (is= 31 (time/days-of-month a-day-in-jan))
+    (is= 5 (time/day-of-year a-day-in-jan))))
+
+(deftest week-nr
+  (is= 53 (time/week-nr (time/of 2021 01 02)))
+  (is= 1 (time/week-nr (time/of 2021 01 04)))
+  (is= 53 (time/week-nr (time/of 2020 12 29)))
+  (is= 1 (time/week-nr (time/of 2025 12 29)))
+  (is= 52 (time/week-nr (time/of 2028 01 02))))
+
+(deftest adjust-day
+
+  (is= time/monday (time/day-of-week
+                    (time/adjust-day-of-week
+                     (time/of 2020 12 10)
+                     time/monday)))
+  (is= (time/of 2020 12 7)
+       (time/adjust-day-of-week
+        (time/of 2020 12 10)
+        time/monday))
+  (is= (time/of 2020 12 13)
+       (time/adjust-day-of-week
+        (time/of 2020 12 10)
+        time/sunday)))

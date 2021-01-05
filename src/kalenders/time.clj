@@ -1,8 +1,10 @@
 (ns kalenders.time
-  (:import [java.time ZonedDateTime Duration Instant ZoneId LocalTime DayOfWeek YearMonth MonthDay LocalDate LocalDateTime DateTimeException ]
+  (:import [java.time ZonedDateTime Duration Instant ZoneId LocalTime DayOfWeek YearMonth MonthDay LocalDate LocalDateTime DateTimeException Month]
            [java.time.zone ZoneRulesException]
-           [java.time.temporal ChronoUnit]
-           [java.util.regex Pattern])
+           [java.time.temporal ChronoUnit WeekFields]
+           [java.time.format TextStyle]
+           [java.util.regex Pattern]
+           [java.util Locale])
   (:require [clojure.string :as string]
             [clojure.set :as set]))
 
@@ -38,68 +40,74 @@
   when hitting an overlap. The time is not adjusted in other ways. An
   ExceptionInfo with :conflict having value :year would be thrown on
   erroneous conditions"
-  [time year]
-  (let [[y month day] (year-month-day time)
-        year-month (YearMonth/of year month)
-        hour (. time getHour)]
-    
-    (if (.isValidDay year-month day)  
-      (let [new-time (.withYear time year)]
-        (if (= hour (.getHour new-time))
-          new-time
-          (let [message (str (LocalDate/from time)
-                         " can not have year changed to " year
-                         " since there is a gap at " (LocalTime/from time) ".")]
-            (throw (ex-info message {:value year
-                                     :conflict :year
-                                     :time time})))))
-      (let [message (str (LocalDate/from time)
-                         " can not have year changed to " year
-                         " since " day " is not a valid day of "
-                         year-month)]
-        (throw (ex-info message {:value year
-                                 :conflict :year
-                                 :time time}))))))
+  [time year & [{:keys [adjust]}]]
+  (if adjust
+    (.withYear time year)
+    (let [[y month day] (year-month-day time)
+          year-month (YearMonth/of year month)
+          hour (. time getHour)]
+      
+      (if (.isValidDay year-month day)  
+        (let [new-time (.withYear time year)]
+          (if (= hour (.getHour new-time))
+            new-time
+            (let [message (str (LocalDate/from time)
+                               " can not have year changed to " year
+                               " since there is a gap at " (LocalTime/from time) ".")]
+              (throw (ex-info message {:value year
+                                       :conflict :year
+                                       :time time})))))
+        (let [message (str (LocalDate/from time)
+                           " can not have year changed to " year
+                           " since " day " is not a valid day of "
+                           year-month)]
+          (throw (ex-info message {:value year
+                                   :conflict :year
+                                   :time time})))))))
 (defn with-month
   "a time with month set to value unless the remaining values would
   render it an invalid time for that month. The time will be at the
   later occation when hitting an overlap. The time is not adjusted
   in other ways. An ExceptionInfo with :conflict having value :month
   would be thrown on erroneous conditions"
-  [time month]
+  [time month & [{:keys [adjust]}]]
   (if (or (< 12 month) (> 1 month))
     (throw (ex-info (str month " is not a valid value for month") 
                     {:value month
                      :conflict :month
                      :time time}))
-    (let [[year m day] (year-month-day time)
-          year-month (YearMonth/of year month)
-          hour (. time getHour)]
-      
-      (if (.isValidDay year-month day)  
-        (let [new-time (.withMonth time month)]
-          (if (= hour (.getHour new-time))
-            new-time
-            (let [message (str (LocalDate/from time)
-                               " can not have month changed to " month
-                               " since there is a gap at " (LocalTime/from time) ".")]
-              (throw (ex-info message {:value month
-                                       :conflict :month
-                                       :time time})))))
-        (let [message (str (LocalDate/from time)
-                           " can not have month changed to " month
-                           " since " day " is not a valid day of "
-                           year-month)]
-          (throw (ex-info message {:value month
-                                   :conflict :month
-                                   :time time})))))))
+    (if adjust
+      (.withMonth time month)
+      (let [[year m day] (year-month-day time)
+                    year-month (YearMonth/of year month)
+                    hour (. time getHour)]
+                
+                (if (.isValidDay year-month day)  
+                  (let [new-time (.withMonth time month)]
+                    (if (= hour (.getHour new-time))
+                      new-time
+                      (let [message (str (LocalDate/from time)
+                                         " can not have month changed to " month
+                                         " since there is a gap at " (LocalTime/from time) ".")]
+                        (throw (ex-info message {:value month
+                                                 :conflict :month
+                                                 :time time})))))
+                  (let [message (str (LocalDate/from time)
+                                     " can not have month changed to " month
+                                     " since " day " is not a valid day of "
+                                     year-month)]
+                    (throw (ex-info message {:value month
+                                             :conflict :month
+                                             :time time}))))))))
 (defn with-day
   "a time with day set to value unless the remaining values would render
   it an invalid time for that day. The time will be at the later
   occation when hitting an overlap. The time is not adjusted in other
   ways. An ExceptionInfo with :conflict having value :day would be thrown
   on erroneous conditions"
-  [time day]
+  [time day & [{:keys [adjust month-days]}]]
+  
+    
   (let [[year month d] (year-month-day time)
         hour (. time getHour)
         year-month (YearMonth/of year month)]
@@ -108,19 +116,41 @@
       (let [new-time (.withDayOfMonth time day)]
         (if (= hour (.getHour new-time))
           new-time
-          (let [message (str (LocalDate/from time)
-                         " can not have day changed to " day
-                         " since there is a gap at " (LocalTime/from time) ".")]
-            (throw (ex-info message {:value day
-                                     :conflict :day
-                                     :time time})))))
-      (let [message (str (LocalDate/from time)
-                         " can not have day changed to " day
-                         " since " day " is not a valid day of "
-                         year-month)]
-        (throw (ex-info message {:value day
-                                 :conflict :day
-                                 :time time}))))))
+          (if adjust
+            new-time
+            (let [message (str (LocalDate/from time)
+                                       " can not have day changed to " day
+                                       " since there is a gap at " (LocalTime/from time) ".")]
+                      (throw (ex-info message {:value day
+                                               :conflict :day
+                                               :time time}))))))
+      (if adjust
+        (let [days (.lengthOfMonth year-month)
+              max (if month-days
+                    (.maxLength (Month/of month))
+                    31)]          
+          (if (or (> day max) (< day 1))
+            
+            (let [message (str (LocalDate/from time)
+                               " can not have day changed to " day
+                               (if month-days
+                                 (str" since " day " is not a valid day of "
+                                   (.getDisplayName (Month/of month)
+                                                    TextStyle/SHORT
+                                                    Locale/ENGLISH) ".")
+                                 (str" as there are no month with " day " days."))
+                               )]
+                    (throw (ex-info message {:value day
+                                             :conflict :day
+                                             :time time})))
+            (.withDayOfMonth time days)))
+        (let [message (str (LocalDate/from time)
+                                   " can not have day changed to " day
+                                   " since " day " is not a valid day of "
+                                   year-month)]
+                  (throw (ex-info message {:value day
+                                           :conflict :day
+                                           :time time})))))))
 
 (defn with-hour
   "a time with hour set to value unless the remaining values would
@@ -128,7 +158,7 @@
   later occation when hitting an overlap. The time is not adjusted
   in other ways. An ExceptionInfo with :conflict having value :hour
   would be thrown on erroneous conditions"
-  [time hour]
+  [time hour & [{:keys [adjust]}]]
   (if (or (< 23 hour) (> 0 hour))
     (let [message (str (LocalDateTime/from time)
                            " can not have hour changed to " hour
@@ -136,22 +166,25 @@
           (throw (ex-info message {:value hour
                                    :conflict :hour
                                    :time time})))
+    
     (let [new-time (.withHour time hour)]
-      (if (= hour (.getHour new-time))
+      (if adjust
         new-time
-        (let [message (str (LocalDateTime/from time)
-                           " can not have hour changed to " hour
-                           " since there is a gap.")]
-          (throw (ex-info message {:value hour
-                                   :conflict :hour
-                                   :time time})))))))
+        (if (= hour (.getHour new-time))
+          new-time
+          (let [message (str (LocalDateTime/from time)
+                             " can not have hour changed to " hour
+                             " since there is a gap.")]
+            (throw (ex-info message {:value hour
+                                     :conflict :hour
+                                     :time time}))))))))
 
 (defn with-minute 
   "a time with minute set to value unless the remaining values would
   render it an invalid time for that month. The time is not adjusted 
   in other ways. An ExceptionInfo with :conflict having value 
   :month would be thrown on erroneous conditions"
-  [time minute]
+  [time minute & [{:keys [adjust]}]]
   (if (or (< 59 minute) (> 0 minute))
     (let [message (str (LocalDateTime/from time)
                            " can not have minute changed to " minute
@@ -161,7 +194,7 @@
                                    :time time})))
     (.withMinute time minute)))
 
-(defn with-second
+(defn with-second 
   "a time with second set to value unless the remaining values would
   render it an invalid time for that second. The time will be at the 
   later occation when hitting an overlap. The time is not adjusted 
@@ -214,15 +247,15 @@
   (ZonedDateTime/ofInstant Instant/EPOCH (ZoneId/systemDefault)))
 
 (defn of
-  "Creates a time with default valkues on missing fields"
-  ([year month day hour min sec] 
+  "Creates a time with default values on missing fields"
+  ([year month day hour min sec & [options]] 
    (-> epoch
        (.withHour 0)
-       (with-year year)
-       (with-month month)
-       (with-day day) 
-       (with-hour hour) 
-       (with-minute min)
+       (with-year year options)
+       (with-month month options)
+       (with-day day options) 
+       (with-hour hour options) 
+       (with-minute min options)
        (with-second sec)))
   ([year month day hour min]
    (of year month day hour min 0))
@@ -234,6 +267,8 @@
    (of year month 1 0 0 0))
   ([year]
    (of year 1 1 0 0 0)))
+
+
    
 
 
@@ -384,20 +419,23 @@
                       {:value time-part
                        :conflict :time-part})))))
 
-(defn with-date-part [time date-part]
-  (let [a (. time with date-part)
-        new-date-part (date-part-of a)]
-    (cond
-      (not (= date-part new-date-part))
-      (throw (ex-info (str date-part " is not a valid date for "
-                           (.toLocalDateTime time) ". It would be adjusted to " (.toLocalDateTime a) ".")
-                      {:value date-part
-                       :conflict :date-part}))
-      (not (= (time-part-of time) (time-part-of a)))
-      (throw (ex-info (str date-part " is not a valid date for "
-                           (.toLocalDateTime time) ". Time part would be adjusted to " (time-part-of a) ".")
-                      {:value date-part
-                       :conflict :date-part})))))
+(defn with-date-part [time date-part & [{:keys [adjust]}]]
+  (let [a (. time with date-part)]
+    (if adjust
+      a
+      (let [new-date-part (date-part-of a)]
+        (cond
+          (not (= date-part new-date-part))
+          (throw (ex-info (str date-part " is not a valid date for "
+                               (.toLocalDateTime time) ". It would be adjusted to " (.toLocalDateTime a) ".")
+                          {:value date-part
+                           :conflict :date-part}))
+          (not (= (time-part-of time) (time-part-of a)))
+          (throw (ex-info (str date-part " is not a valid date for "
+                               (.toLocalDateTime time) ". Time part would be adjusted to " (time-part-of a) ".")
+                          {:value date-part
+                           :conflict :date-part}))
+          :else a)))))
 
 (defn with-time-zone [time time-zone]
   (let [datetime (. time toLocalDateTime)
@@ -412,14 +450,14 @@
                        :conflict :time-zone
                        :time time})))))
 
-(defn adjust-to-timezone [time time-zone]
+(defn adjust-to-time-zone [time time-zone]
   (. time withZoneSameInstant time-zone))
 
 (defn default-time-zone []
   (ZoneId/systemDefault))
 
 (defn time-zone-of [time]
-  (ZoneId/of time)) #_(Need som error handling)
+  (.getZone time))
 
 (defn time-zone [name]
   (try (ZoneId/of name ZoneId/SHORT_IDS)
@@ -499,8 +537,8 @@
 
 (defn date-part
   "date part from its components"
-  [y m d]
-  (date-part-of (of y m d)))
+  [y m d & [options]]
+  (date-part-of (of y m d 0 0 0 options)))
 
 (defn with-earlier-at-overlap
   "pick the earlier alternative if time is at overlap"
@@ -533,22 +571,27 @@
   (cond (int? x)
         (DayOfWeek/of x)
         (string? x)
-        (DayOfWeek/from x)))
+        (DayOfWeek/valueOf x)))
+
+(defn adjust-day-of-week [time day]
+  (. time with day))
+
 (defn days-of-month [time]
   (-> (YearMonth/from time)
       (. lengthOfMonth)))
+
 (defn first-day-of-month [time]
   (. time withDayOfMonth 1))
 (defn last-day-of-month [time]
   (let [last-day (. (YearMonth/from time) lengthOfMonth)]
     (. time withDayOfMonth last-day)))
 (defn begining-of-month [time]
-  (-> (. time withLocalTime (LocalTime/MIDNIGHT))
+  (-> (. time with LocalTime/MIDNIGHT)
       (. withDayOfMonth 1)))
 (defn end-of-month [time]
   (let [first-next-month (MonthDay/of (+ 1 (.getMonthValue time)) 1)]
     (-> (. time with first-next-month)
-        (. withLocalTime (LocalTime/MIDNIGHT))
+        (. with (LocalTime/MIDNIGHT))
         (just-before))))
 
 (defn next-same-day-of-week [time day-of-week]
@@ -577,3 +620,38 @@
     (producer time)))
 
 
+(defn of-time-zone
+  "Creates a time with default values on missing fields"
+  ([year month day hour min sec time-zone & [options]] 
+   (-> epoch
+       (with-time-zone time-zone)
+       (.withHour 0)
+       (with-year year options)
+       (with-month month options)
+       (with-day day options) 
+       (with-hour hour options) 
+       (with-minute min options)
+       (with-second sec)))
+  ([year month day hour min time-zone]
+   (of-time-zone year month day hour min 0 time-zone))
+  ([year month day hour time-zone]
+   (of-time-zone year month day hour 0 0 time-zone))
+  ([year month day time-zone]
+   (of-time-zone year month day 0 0 0 time-zone))
+  ([year month time-zone]
+   (of-time-zone year month 1 0 0 0 time-zone))
+  ([year time-zone]
+   (of-time-zone year 1 1 0 0 0 time-zone)))
+
+
+(defn day-of-year
+  "days since beginning of year of time, where 1 is january 1"
+  [time]
+  (.getDayOfYear time))
+
+(defn week-nr
+  "ISO week number of time. Commonly used in Europe"
+  [time]
+   (let [date (date-part-of time)
+         weekOfYear (.weekOfWeekBasedYear (WeekFields/ISO))]
+    (. date get weekOfYear)))
