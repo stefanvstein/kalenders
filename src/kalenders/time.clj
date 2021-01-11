@@ -1,24 +1,25 @@
 (ns kalenders.time
-  (:import [java.time ZonedDateTime Duration Instant ZoneId LocalTime DayOfWeek YearMonth MonthDay LocalDate LocalDateTime DateTimeException Month]
+  (:import [java.time ZonedDateTime Duration Instant ZoneId LocalTime DayOfWeek YearMonth MonthDay LocalDate ;;LocalDateTime
+            DateTimeException Month]
            [java.time.zone ZoneRulesException]
-           [java.time.temporal ChronoUnit WeekFields]
+           [java.time.temporal ChronoUnit WeekFields TemporalField]
            [java.time.format TextStyle]
            [java.util.regex Pattern]
            [java.util Locale])
   (:require [clojure.string :as string]
             [clojure.set :as set]))
 
-(defn now []
+(defn now [] ^ZonedDateTime
   (ZonedDateTime/now))
 
 (defn hour-minute-second
   "a vector with [hours minutes seconds] values of time "
-  [time]
+  [^ZonedDateTime time]
   [(.getHour time) (.getMinute time) (.getSecond time)])
 
 (defn hour-minute-second-millis
   "a vector with [hours minutes seconds millis] values of time "
-  [time]
+  [^ZonedDateTime time]
   [(.getHour time)
    (.getMinute time)
    (.getSecond time)
@@ -26,7 +27,7 @@
 
 (defn hour-minute-second-nanos
   "a vector with [hours minutes seconds nanos] values of time "
-  [time]
+  [^ZonedDateTime time]
   [(.getHour time) (.getMinute time) (.getSecond time) (.getNano time)])
 
 (defn year-month-day
@@ -40,10 +41,10 @@
   when hitting an overlap. The time is not adjusted in other ways. An
   ExceptionInfo with :conflict having value :year would be thrown on
   erroneous conditions"
-  [time year & [{:keys [adjust]}]]
+  [^ZonedDateTime time ^Integer year & [{:keys [adjust]}]]
   (if adjust
     (.withYear time year)
-    (let [[y month day] (year-month-day time)
+    (let [[y ^Integer month day] (year-month-day time)
           year-month (YearMonth/of year month)
           hour (. time getHour)]
       
@@ -70,7 +71,7 @@
   later occation when hitting an overlap. The time is not adjusted
   in other ways. An ExceptionInfo with :conflict having value :month
   would be thrown on erroneous conditions"
-  [time month & [{:keys [adjust]}]]
+  [^ZonedDateTime time ^Integer month & [{:keys [adjust]}]]
   (if (or (< 12 month) (> 1 month))
     (throw (ex-info (str month " is not a valid value for month") 
                     {:value month
@@ -78,7 +79,7 @@
                      :time time}))
     (if adjust
       (.withMonth time month)
-      (let [[year m day] (year-month-day time)
+      (let [[^Integer year m day] (year-month-day time)
                     year-month (YearMonth/of year month)
                     hour (. time getHour)]
                 
@@ -105,10 +106,10 @@
   occation when hitting an overlap. The time is not adjusted in other
   ways. An ExceptionInfo with :conflict having value :day would be thrown
   on erroneous conditions"
-  [time day & [{:keys [adjust month-days]}]]
+  [^ZonedDateTime time ^Integer day & [{:keys [adjust month-days]}]]
   
     
-  (let [[year month d] (year-month-day time)
+  (let [[^Integer year ^Integer month d] (year-month-day time)
         hour (. time getHour)
         year-month (YearMonth/of year month)]
     
@@ -158,7 +159,7 @@
   later occation when hitting an overlap. The time is not adjusted
   in other ways. An ExceptionInfo with :conflict having value :hour
   would be thrown on erroneous conditions"
-  [time hour & [{:keys [adjust]}]]
+  [^ZonedDateTime time hour & [{:keys [adjust]}]]
   (if (or (< 23 hour) (> 0 hour))
     (let [message (str (LocalDateTime/from time)
                            " can not have hour changed to " hour
@@ -184,7 +185,7 @@
   render it an invalid time for that month. The time is not adjusted 
   in other ways. An ExceptionInfo with :conflict having value 
   :month would be thrown on erroneous conditions"
-  [time minute & [{:keys [adjust]}]]
+  [^ZonedDateTime time minute & [{:keys [adjust]}]]
   (if (or (< 59 minute) (> 0 minute))
     (let [message (str (LocalDateTime/from time)
                            " can not have minute changed to " minute
@@ -200,7 +201,7 @@
   later occation when hitting an overlap. The time is not adjusted 
   in other ways. An ExceptionInfo with :conflict having value 
   :second would be thrown on erroneous conditions"
-  [time second]
+  [^ZonedDateTime time second]
   (if (or (< 59 second) (> 0 second))
     (let [message (str (LocalDateTime/from time)
                            " can not have second changed to " second
@@ -216,7 +217,7 @@
   in other ways. An ExceptionInfo with :conflict having value 
   :millis would be thrown on erroneous conditions. Note that this 
   represents fractions of a second and would overwrite the nanos"
-  [time millis]
+  [^ZonedDateTime time millis]
   (if (or (< 999 millis) (> 0 millis))
     (let [message (str (LocalDateTime/from time)
                            " can not have millis changed to " millis
@@ -232,7 +233,7 @@
   in other ways. An ExceptionInfo with :conflict having value 
   :nano would be thrown on erroneous conditions. Note that this 
   represents fractions of a second and would overwrite the millis"
-  [time nanos]
+  [^ZonedDateTime time nanos]
   (if (or (< 999999999 nanos) (> 0 nanos))
     (let [message (str (LocalDateTime/from time)
                            " can not have nanos changed to " nanos
@@ -243,7 +244,7 @@
     (.withNano time nanos)))
 
 
-(def epoch 
+(def ^ZonedDateTime epoch 
   (ZonedDateTime/ofInstant Instant/EPOCH (ZoneId/systemDefault)))
 
 (defn of
@@ -274,8 +275,7 @@
 
 
 (defn- order?
-  
-  ([c a b] (c 0 (. a compareTo b)))
+  ([c a b] (c 0 (compare a  b)))
   ([c a b & xs]
    (->> (cons a (cons b xs))
         (reduce
@@ -316,10 +316,10 @@
 
 (defn add-duration
   "a time changed by duration time"
-  [time duration]
+  [^ZonedDateTime time duration]
   (. time plus duration))
 
-(defn add-seconds [time seconds]
+(defn add-seconds [^ZonedDateTime time seconds]
   "a time with seconds added"
   (. time plusSeconds seconds))
 
@@ -328,7 +328,7 @@
 
 (defn add-days 
   "a time with days added"
-  [time days]
+  [^ZonedDateTime time days]
   (. time plusDays days))
 
 #_(defn remove-days [time days]
@@ -336,7 +336,7 @@
 
 (defn add-hours
   "a time with hours added"
-  [time hours]
+  [^ZonedDateTime time hours]
   (. time plusHours hours))
 
 #_(defn remove-days [time days]
@@ -344,40 +344,40 @@
 
 (defn add-minutes
   "a time with minutes added"
-  [time minutes]
+  [^ZonedDateTime time minutes]
   (. time plusMinutes minutes))
 
 (defn add-millis
   "a time with millis added"
-  [time millis]
+  [^ZonedDateTime time millis]
   (. time plusNanos (* 1000000 millis)))
 
 (defn add-nanos
   "a time with nanos added"
-  [time nanos]
+  [^ZonedDateTime time nanos]
   (. time plusNanos nanos))
 
-(defn add-years [time years]
+(defn add-years [^ZonedDateTime time years]
   "a time with years added"
   (. time plusYears years))
 
-(defn just-after [time]
+(defn just-after [ time]
   "a time just after supplied"
   (. time plusNanos 1))
 
-(defn just-before [time]
+(defn just-before [ time]
   "a time just before time"
   (. time minusNanos 1))
 
-#_(defn previous-day [time]
+#_(defn previous-day [^ZonedDateTime time]
   (. time minusDays 1))
 
-#_(defn next-day [time]
+#_(defn next-day [^ZonedDateTime time]
   (. time plusDays 1))
 
 (defn time-part-of
   "The time part, except the date part"
-  [date-time]
+  [^ZonedDateTime date-time]
   (.toLocalTime date-time))
 
 (defn time-part
@@ -402,24 +402,26 @@
          (LocalTime/of h m s))))
 
 (defn date-part-of "date part of time, without fractions of day"
-  [time]
+  [^ZonedDateTime time]
   (.toLocalDate time))
 
-(defn with [time adjuster]
+(defn with [^ZonedDateTime time ^TemporalField adjuster]
   (. time with adjuster))
 
-(defn with-time-part [time time-part]
+(defn with-time-part [^ZonedDateTime time time-part & [{:keys [adjust]}]]
   (let [a (. time with time-part)
         new-time-part (time-part-of a)]
     (if (= time-part new-time-part)
       a
-      (throw (ex-info (str time-part " is not a valid time for "
-                           (date-part-of time) ". It would be adjusted to "
-                           new-time-part)
-                      {:value time-part
-                       :conflict :time-part})))))
+      (if adjust
+        a
+        (throw (ex-info (str time-part " is not a valid time for "
+                             (date-part-of time) ". It would be adjusted to "
+                             new-time-part)
+                        {:value time-part
+                         :conflict :time-part}))))))
 
-(defn with-date-part [time date-part & [{:keys [adjust]}]]
+(defn with-date-part [^ZonedDateTime time ^LocalDate date-part & [{:keys [adjust]}]]
   (let [a (. time with date-part)]
     (if adjust
       a
@@ -437,7 +439,7 @@
                            :conflict :date-part}))
           :else a)))))
 
-(defn with-time-zone [time time-zone]
+(defn with-time-zone [^ZonedDateTime time ^ZoneId time-zone]
   (let [datetime (. time toLocalDateTime)
         value (. time withZoneSameLocal time-zone)
         datetime-of-value (. value toLocalDateTime)]
@@ -450,13 +452,13 @@
                        :conflict :time-zone
                        :time time})))))
 
-(defn adjust-to-time-zone [time time-zone]
+(defn adjust-to-time-zone [^ZonedDateTime time ^ZoneId time-zone]
   (. time withZoneSameInstant time-zone))
 
 (defn default-time-zone []
   (ZoneId/systemDefault))
 
-(defn time-zone-of [time]
+(defn time-zone-of [^ZonedDateTime time]
   (.getZone time))
 
 (defn time-zone [name]
@@ -516,7 +518,7 @@
 
 (defn truncate
   "truncate values until suplied unit"
-  [time unit]
+  [^ZonedDateTime time unit]
   (condp = unit
     :millenia (of (* 1000 (int (/ (.getYear time) 1000))))
     :century (of (* 100 (int (/ (.getYear time) 100))))
@@ -542,12 +544,12 @@
 
 (defn with-earlier-at-overlap
   "pick the earlier alternative if time is at overlap"
-  [t]
+  [^ZonedDateTime  t]
   (.withEarlierOffsetAtOverlap t))
 
 (defn with-later-at-overlap
   "pick the later alternative if time is at overlap"
-  [t]
+  [^ZonedDateTime t]
   (.withLaterOffsetAtOverlap t))
 
 (def monday DayOfWeek/MONDAY)
@@ -561,10 +563,10 @@
 (defn day-of-week? [object]
   (instance? DayOfWeek object))
 
-(defn day-of-week [timestamp]
+(defn day-of-week [^ZonedDateTime timestamp]
   (DayOfWeek/from timestamp))
 
-(defn day-of-week-nr [day-of-week]
+(defn day-of-week-nr [^DayOfWeek day-of-week]
   (.getValue day-of-week))
 
 (defn day-of-week-from [x]
@@ -573,42 +575,42 @@
         (string? x)
         (DayOfWeek/valueOf x)))
 
-(defn adjust-day-of-week [time day]
+(defn adjust-day-of-week [^ZonedDateTime time ^DayOfWeek day]
   (. time with day))
 
 (defn days-of-month [time]
   (-> (YearMonth/from time)
       (. lengthOfMonth)))
 
-(defn first-day-of-month [time]
+(defn first-day-of-month [^ZonedDateTime time]
   (. time withDayOfMonth 1))
-(defn last-day-of-month [time]
+(defn last-day-of-month [^ZonedDateTime time]
   (let [last-day (. (YearMonth/from time) lengthOfMonth)]
     (. time withDayOfMonth last-day)))
-(defn begining-of-month [time]
+(defn begining-of-month [^ZonedDateTime time]
   (-> (. time with LocalTime/MIDNIGHT)
       (. withDayOfMonth 1)))
-(defn end-of-month [time]
+(defn end-of-month [^ZonedDateTime time]
   (let [first-next-month (MonthDay/of (+ 1 (.getMonthValue time)) 1)]
     (-> (. time with first-next-month)
         (. with (LocalTime/MIDNIGHT))
         (just-before))))
 
-(defn next-same-day-of-week [time day-of-week]
+(defn next-same-day-of-week [^ZonedDateTime time ^DayOfWeek day-of-week]
   (-> (. time adjustInto day-of-week)
       (add-days 7)))
 
-(defn previous-same-day-of-week [time day-of-week]
+(defn previous-same-day-of-week [^ZonedDateTime time ^DayOfWeek day-of-week]
   (let [yesterday (add-days time -1)]
     (. yesterday adjustInto day-of-week)))
 
 (defn transitions
   "Sequence of time transitions after time, usually DST transistions,
   in pairs of time just before and after transition"
-  [time]
+  [^ZonedDateTime time]
   (let [zoneId (.getZone time)
         rules (.getRules zoneId)
-        producer (fn producer [t]
+        producer (fn producer [^ZonedDateTime t]
                    (when-let [transition (. rules nextTransition (. t toInstant))]
                      (let [localBefore (-> (. transition getDateTimeBefore)
                                            (just-before)) 
@@ -646,12 +648,32 @@
 
 (defn day-of-year
   "days since beginning of year of time, where 1 is january 1"
-  [time]
+  [^ZonedDateTime time]
   (.getDayOfYear time))
 
 (defn week-nr
   "ISO week number of time. Commonly used in Europe"
-  [time]
+  [^ZonedDateTime time]
    (let [date (date-part-of time)
          weekOfYear (.weekOfWeekBasedYear (WeekFields/ISO))]
-    (. date get weekOfYear)))
+     (. date get weekOfYear)))
+
+(defn start-of-week-nr [year week & [{:keys [adjust]}]]
+  (if (< week 1)
+    (throw (ex-info "Week-nr need to to be 1 or higher"
+                    {:value week
+                     :conflict :week}))
+      (let [first-week (adjust-day-of-week (of year 1 4) monday)
+            start-of-week (add-days first-week (* 7 (- week 1)))]
+        (if (= week (week-nr start-of-week))
+          start-of-week
+          (let [last-week (-> (start-of-week-nr (+ year 1) 1)
+                              (add-days -1)
+                              (week-nr))
+                start-of-last (start-of-week-nr year last-week)]
+            (if adjust
+              start-of-last
+              (throw (ex-info (str "Last week of " year " is " last-week
+                                   " starting at " start-of-last)
+                              {:value week
+                               :conflict :week}))))))))

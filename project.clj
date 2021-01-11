@@ -3,4 +3,6 @@
   :plugins          [[lein-cloverage "1.2.1"]]
   :main ^:skip-aot kaleders.core
   :target-path "target/%s"
-  :profiles {:uberjar {:aot :all}})
+  :profiles {:uberjar {:aot :all}}
+  ;:global-vars {*warn-on-reflection* true}
+  )

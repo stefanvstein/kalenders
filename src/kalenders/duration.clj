@@ -2,25 +2,25 @@
   (:import [java.time Duration]))
 
 
-(defn of-seconds [n]
+(defn of-seconds [^long n]
   (Duration/ofSeconds n))
 
-(defn add-minutes [duration minutes]
+(defn add-minutes [^Duration duration minutes]
   (. duration plusMinutes minutes))
 
-(defn add-hours [duration hours]
+(defn add-hours [^Duration duration hours]
   (. duration plusHours hours))
 
-(defn add-seconds [duration seconds]
+(defn add-seconds [^Duration duration seconds]
   (. duration plusSeconds seconds))
 
-(defn add-millis [duration millis]
+(defn add-millis [^Duration duration millis]
   (. duration plusMillis millis))
 
-(defn add-nanos [duration nanos]
+(defn add-nanos [^Duration duration nanos]
   (. duration plusNanos nanos))
 
-(defn add-days [duration days]
+(defn add-days [^Duration duration days]
   (. duration plusDays days))
 
 (defn of [hours minutes seconds] #_(Måste kontolleras)
@@ -28,55 +28,55 @@
       (add-minutes minutes)
       (add-hours hours)))
 
-(defn seconds-of [duration]
+(defn seconds-of [^Duration duration]
   (.getSeconds duration))
 
-(defn negative? [duration]
+(defn negative? [^Duration duration]
   (. duration isNegative))
 
-(defn negated [duration]
+(defn negated [^Duration duration]
   (. duration negated))
 
 (defn multiplied-by
-  ([duration n]
+  ([^Duration duration n]
    (. duration multipliedBy n))
-  ([duration n & ns]
+  ([^Duration duration n & ns]
    (reduce (fn [a x] (. a multipliedBy x))
            (multiplied-by duration n)
            ns)))
 
 (defn divided-by
-  ([duration n]
+  ([^Duration duration n]
    (. duration dividedBy n))
-  ([duration n & ns]
+  ([^Duration duration n & ns]
    (reduce (fn [a x] (. a dividedBy x))
            (divided-by duration n)
            ns)))
 
-(defn abs [duration]
+(defn abs [^Duration duration]
   (. duration abs))
 
-(defn of-hours [n]
+(defn of-hours [^Duration n]
   (Duration/ofHours n))
 
-(defn hours-of [duration]
+(defn hours-of [^Duration duration]
   (.toHours duration))
 
-(defn minutes-of [duration]
+(defn minutes-of [^Duration duration]
   (.toMinutes duration))
 
-(defn millis-of [duration]
+(defn millis-of [^Duration duration]
   (.toMillis duration))
 
-(defn nanos-of [duration]
+(defn nanos-of [^Duration duration]
   (.toNanos duration))
 
-(defn days-of [duration]
+(defn days-of [^Duration duration]
   (.toDays duration))
 
  
 (defn plus
-  ([a b]
+  ([^Duration a b]
    (. a plus b))
   ([a b & xs]
    (reduce (fn [acc x]
@@ -85,14 +85,14 @@
            xs)))
 
 (defn minus
-  ([a b]
+  ([^Duration a b]
    (. a minus b))
   ([a b & xs]
    (reduce (fn [acc x] (minus acc x))
            (minus a b)
            xs)))
 
-(defn hours-minutes-seconds-of [duration]
+(defn hours-minutes-seconds-of [^Duration duration]
   (let [hours (hours-of duration)
         rem (. duration minusHours hours)
         minutes (minutes-of rem)
@@ -100,7 +100,7 @@
         seconds (seconds-of rem)]
     [hours minutes seconds]))
 
-(defn days-hours-minutes-seconds-of [duration]
+(defn days-hours-minutes-seconds-of [^Duration duration]
   (let [days (days-of duration)
         rem (. duration minusDays days)
         hours (hours-of rem)
@@ -110,7 +110,7 @@
         seconds (seconds-of rem)]
      [days hours minutes seconds]))
 
-(defn days-hours-minutes-seconds-millis-of [duration]
+(defn days-hours-minutes-seconds-millis-of [^Duration duration]
   (let [days (days-of duration)
         rem (. duration minusDays days)
         hours (hours-of rem)
@@ -123,13 +123,13 @@
     [days hours minutes seconds millis]))
   
 
-(defn seconds-millis-of [duration]
+(defn seconds-millis-of [^Duration duration]
   (let [seconds (seconds-of duration)
         rem (. duration minusSeconds seconds)
         millis (millis-of rem)]
     [seconds millis]))
 
-(defn seconds-nanos-of [duration]
+(defn seconds-nanos-of [^Duration duration]
   (let [seconds (seconds-of duration)
         rem (. duration minusSeconds seconds)
         nanos (nanos-of rem)]
@@ -139,7 +139,7 @@
   ([] true)
   ([_] true)
   ([a b]
-   (>= 0 (. a compareTo b)))
+   (>= 0 (compare a  b)))
   ([a b & xs]
    (->> (cons a (cons b xs))
         (reduce
@@ -153,7 +153,7 @@
   ([] true)
   ([_] true)
   ([a b]
-   (<= 0 (. a compareTo b)))
+   (<= 0 (compare a b)))
   ([a b & xs]
    (->> (cons a (cons b xs))
         (reduce
@@ -166,13 +166,13 @@
 (defn between [a b]
   (Duration/between a b))
 
-(defn none? [n]
+(defn none? [^Duration n]
   (.isZero n))
 
 (def none 
   Duration/ZERO)
   
-(defn to-iso8601 [duration]
+(defn to-iso8601 [^Duration duration]
   (. duration toString))
 
 (defn from-iso8601 [text]
