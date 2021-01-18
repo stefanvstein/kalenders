@@ -26,7 +26,7 @@
     (time/begining-of-month ref-time)))
 
 (defn- define-recursivly [from-day from-time-part until-day until-time-part timestamp]
-  (loop [attempt 0 ref-time (time/truncate timestamp :month)]
+  (loop [attempt 0 ref-time (time/begining-of-month timestamp)]
     (when (| 13 > attempt)
       (let [next-attempt (inc attempt)
             start-of-next-month (time/just-after (time/end-of-month ref-time))]

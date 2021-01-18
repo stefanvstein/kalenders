@@ -1,39 +1,132 @@
+
 (ns kalenders.time
-  (:import [java.time ZonedDateTime Duration Instant ZoneId LocalTime DayOfWeek YearMonth MonthDay LocalDate ;;LocalDateTime
+  (:import [java.time ZonedDateTime Duration Instant ZoneId LocalTime DayOfWeek YearMonth MonthDay LocalDate LocalDateTime
             DateTimeException Month]
            [java.time.zone ZoneRulesException]
-           [java.time.temporal ChronoUnit WeekFields TemporalField]
+           [java.time.temporal ChronoUnit ChronoField WeekFields TemporalField TemporalAccessor Temporal TemporalAdjuster TemporalQueries]
            [java.time.format TextStyle]
            [java.util.regex Pattern]
            [java.util Locale])
   (:require [clojure.string :as string]
-            [clojure.set :as set]))
+            [clojure.set :as set]
+            [kalenders.time :as time]))
 
 (defn now [] ^ZonedDateTime
   (ZonedDateTime/now))
 
+(defn has-hour? [^TemporalAccessor time]
+  (.isSupported time ChronoField/HOUR_OF_DAY))
+
+(defn has-hour-minute-second? [^TemporalAccessor time]
+  (and (.isSupported time ChronoField/HOUR_OF_DAY)
+       (.isSupported time ChronoField/MINUTE_OF_HOUR)
+       (.isSupported time ChronoField/SECOND_OF_MINUTE)))
+
 (defn hour-minute-second
   "a vector with [hours minutes seconds] values of time "
-  [^ZonedDateTime time]
-  [(.getHour time) (.getMinute time) (.getSecond time)])
+  [^TemporalAccessor time]
+  (when-not (has-hour-minute-second? time)
+    (ex-info (str "object of type " (str (class time))
+                  " does not support hour minute and second" {})))
+  [(.get time ChronoField/HOUR_OF_DAY)
+   (.get time ChronoField/MINUTE_OF_HOUR)
+   (.get time ChronoField/SECOND_OF_MINUTE)])
+
+(defn has-minute? [^TemporalAccessor time]
+  (.isSupported time ChronoField/MINUTE_OF_HOUR))
+
+(defn has-hour-minute-second-millis? [^TemporalAccessor time]
+  (and (.isSupported time ChronoField/HOUR_OF_DAY)
+       (.isSupported time ChronoField/MINUTE_OF_HOUR)
+       (.isSupported time ChronoField/SECOND_OF_MINUTE)
+       (.isSupported time ChronoField/MILLI_OF_SECOND)))  
 
 (defn hour-minute-second-millis
   "a vector with [hours minutes seconds millis] values of time "
-  [^ZonedDateTime time]
-  [(.getHour time)
-   (.getMinute time)
-   (.getSecond time)
-   (int (/ (.getNano time) 1000000))])
+  [^TemporalAccessor time]
+  (when-not (has-hour-minute-second-millis? time)
+    (ex-info (str "object of type " (str (class time))
+                  " does not support hour minute second and millis" {})))
+  [(.get time ChronoField/HOUR_OF_DAY)
+   (.get time ChronoField/MINUTE_OF_HOUR)
+   (.get time ChronoField/SECOND_OF_MINUTE)
+   (.get time ChronoField/MILLI_OF_SECOND)])
+
+(defn hour-minute-second-nano? [^TemporalAccessor time]
+  (and (.isSupported time ChronoField/HOUR_OF_DAY)
+       (.isSupported time ChronoField/MINUTE_OF_HOUR)
+       (.isSupported time ChronoField/SECOND_OF_MINUTE)
+       (.isSupported time ChronoField/NANO_OF_SECOND)))
 
 (defn hour-minute-second-nanos
   "a vector with [hours minutes seconds nanos] values of time "
-  [^ZonedDateTime time]
-  [(.getHour time) (.getMinute time) (.getSecond time) (.getNano time)])
+  [^TemporalAccessor time]
+  (when-not (hour-minute-second-nano? time)
+    (ex-info (str "object of type " (str (class time))
+                  " does not support hour minute second and nano" {})))
+  [(.get time ChronoField/HOUR_OF_DAY)
+   (.get time ChronoField/MINUTE_OF_HOUR)
+   (.get time ChronoField/SECOND_OF_MINUTE)
+   (.get time ChronoField/NANO_OF_SECOND)])
+
+(defn has-year-month? [^TemporalAccessor time]
+  (and (.isSupported time ChronoField/YEAR)
+       (.isSupported time ChronoField/MONTH_OF_YEAR)))
+
+(defn has-year-month-day? [^TemporalAccessor time]
+  (and (.isSupported time ChronoField/YEAR)
+       (.isSupported time ChronoField/MONTH_OF_YEAR)
+       (.isSupported time ChronoField/DAY_OF_MONTH)))
+(defn year-month
+  "a vector with [year month] values of time "
+  [^TemporalAccessor time]
+  (when-not (has-year-month? time)
+    (ex-info (str "Type " (str (class time))
+                  " does not support year and month." {})))
+  [(.get time ChronoField/YEAR)
+   (.get time ChronoField/MONTH_OF_YEAR)])
 
 (defn year-month-day
   "a vector with [year month day] values of time "
-  [time]
-  [(.getYear time) (.getMonthValue time) (.getDayOfMonth time)])
+  [^TemporalAccessor time]
+  (when-not (has-year-month-day? time)
+    (ex-info (str "object of type " (str (class time))
+                  " does not support year month and day" {})))
+  [(.get time ChronoField/YEAR)
+   (.get time ChronoField/MONTH_OF_YEAR)
+   (.get time ChronoField/DAY_OF_MONTH)])
+
+
+(defn- with-year-exact [^Temporal time ^Integer year]
+  (let [[y ^Integer month day] (year-month-day time)
+        year-month (YearMonth/of year month)]
+    (when-not (.isValidDay year-month day)
+      (throw (ex-info
+              (str (LocalDate/from time)
+                   " can not have year changed to " year
+                   " since " day " is not a valid day of "
+                   year-month)
+              {:value year
+               :conflict :year
+               :time time})))
+      
+    (let [new-time (.with time ChronoField/YEAR year)]
+      (if-not (has-hour? time)
+        new-time
+        (let [hour (. time get ChronoField/HOUR_OF_DAY)]
+          (if (= hour (.get new-time ChronoField/HOUR_OF_DAY))
+            new-time
+            (-> (ex-info
+                 (str (LocalDate/from time)
+                      " can not have year changed to " year
+                      " since there is a gap at "
+                      (LocalTime/from time) ".")
+                 {:value year
+                  :conflict :year
+                  :time time})
+                (throw))))))
+
+      ))
 
 (defn with-year
   "a time with year set to value unless the remaining values would render
@@ -41,117 +134,124 @@
   when hitting an overlap. The time is not adjusted in other ways. An
   ExceptionInfo with :conflict having value :year would be thrown on
   erroneous conditions"
-  [^ZonedDateTime time ^Integer year & [{:keys [adjust]}]]
-  (if adjust
-    (.withYear time year)
-    (let [[y ^Integer month day] (year-month-day time)
-          year-month (YearMonth/of year month)
-          hour (. time getHour)]
-      
-      (if (.isValidDay year-month day)  
-        (let [new-time (.withYear time year)]
-          (if (= hour (.getHour new-time))
-            new-time
-            (let [message (str (LocalDate/from time)
-                               " can not have year changed to " year
-                               " since there is a gap at " (LocalTime/from time) ".")]
-              (throw (ex-info message {:value year
-                                       :conflict :year
-                                       :time time})))))
+  [^Temporal time ^Integer year & [{:keys [adjust]}]]
+  (if-not (has-year-month-day? time)
+    (if (has-year-month? time)
+      (.with time ChronoField/YEAR year)
+      (throw (ex-info (str "type " (class time)
+                           " does not have year month or day")
+                      {:value time
+                       :conflict :class})))
+    (if adjust
+      (.with time ChronoField/YEAR year)
+      (with-year-exact time year))))
+
+(defn- with-month-exact [^Temporal time ^Integer month]
+  (let [[^Integer year m day] (year-month-day time)
+            year-month (YearMonth/of year month)
+            hour (. time get ChronoField/HOUR_OF_DAY)]  
+    (when-not (.isValidDay year-month day)
+      (throw (ex-info
+              (str (LocalDate/from time)
+                   " can not have month changed to " month
+                   " since " day " is not a valid day of "
+                   year-month)
+              {:value month
+               :conflict :month
+               :time time})))  
+    (let [new-time (.with time ChronoField/MONTH_OF_YEAR month)]
+      (if (= hour (.get new-time ChronoField/HOUR_OF_DAY))
+        new-time
         (let [message (str (LocalDate/from time)
-                           " can not have year changed to " year
-                           " since " day " is not a valid day of "
-                           year-month)]
-          (throw (ex-info message {:value year
-                                   :conflict :year
+                           " can not have month changed to " month
+                           " since there is a gap at "
+                           (LocalTime/from time) ".")]
+          (throw (ex-info message {:value month
+                                   :conflict :month
                                    :time time})))))))
+
 (defn with-month
   "a time with month set to value unless the remaining values would
   render it an invalid time for that month. The time will be at the
   later occation when hitting an overlap. The time is not adjusted
   in other ways. An ExceptionInfo with :conflict having value :month
   would be thrown on erroneous conditions"
-  [^ZonedDateTime time ^Integer month & [{:keys [adjust]}]]
-  (if (or (< 12 month) (> 1 month))
+  [^Temporal time ^Integer month & [{:keys [adjust]}]]
+  (when (or (< 12 month) (> 1 month))
     (throw (ex-info (str month " is not a valid value for month") 
                     {:value month
-                     :conflict :month
-                     :time time}))
+                     :conflict :month})))
+  (if-not (has-year-month-day? time)
+    (if (has-year-month? time)
+      (.with time ChronoField/MONTH_OF_YEAR month) 
+      (throw (ex-info (str "type " (class time)
+                           " does not have year month or day")
+                        {:value time
+                         :conflict :class})))    
     (if adjust
-      (.withMonth time month)
-      (let [[^Integer year m day] (year-month-day time)
-                    year-month (YearMonth/of year month)
-                    hour (. time getHour)]
-                
-                (if (.isValidDay year-month day)  
-                  (let [new-time (.withMonth time month)]
-                    (if (= hour (.getHour new-time))
-                      new-time
-                      (let [message (str (LocalDate/from time)
-                                         " can not have month changed to " month
-                                         " since there is a gap at " (LocalTime/from time) ".")]
-                        (throw (ex-info message {:value month
-                                                 :conflict :month
-                                                 :time time})))))
-                  (let [message (str (LocalDate/from time)
-                                     " can not have month changed to " month
-                                     " since " day " is not a valid day of "
-                                     year-month)]
-                    (throw (ex-info message {:value month
-                                             :conflict :month
-                                             :time time}))))))))
-(defn with-day
-  "a time with day set to value unless the remaining values would render
-  it an invalid time for that day. The time will be at the later
-  occation when hitting an overlap. The time is not adjusted in other
-  ways. An ExceptionInfo with :conflict having value :day would be thrown
-  on erroneous conditions"
-  [^ZonedDateTime time ^Integer day & [{:keys [adjust month-days]}]]
-  
-    
+      (.with time ChronoField/MONTH_OF_YEAR month)
+      (with-month-exact time month))))
+
+
+
+(defn- with-day-exact [^Temporal time ^Integer day]
   (let [[^Integer year ^Integer month d] (year-month-day time)
-        hour (. time getHour)
         year-month (YearMonth/of year month)]
     
-    (if (.isValidDay year-month day)  
-      (let [new-time (.withDayOfMonth time day)]
-        (if (= hour (.getHour new-time))
-          new-time
-          (if adjust
-            new-time
-            (let [message (str (LocalDate/from time)
-                                       " can not have day changed to " day
-                                       " since there is a gap at " (LocalTime/from time) ".")]
-                      (throw (ex-info message {:value day
-                                               :conflict :day
-                                               :time time}))))))
-      (if adjust
-        (let [days (.lengthOfMonth year-month)
-              max (if month-days
-                    (.maxLength (Month/of month))
-                    31)]          
-          (if (or (> day max) (< day 1))
-            
-            (let [message (str (LocalDate/from time)
-                               " can not have day changed to " day
-                               (if month-days
-                                 (str" since " day " is not a valid day of "
-                                   (.getDisplayName (Month/of month)
-                                                    TextStyle/SHORT
-                                                    Locale/ENGLISH) ".")
-                                 (str" as there are no month with " day " days."))
-                               )]
-                    (throw (ex-info message {:value day
-                                             :conflict :day
-                                             :time time})))
-            (.withDayOfMonth time days)))
-        (let [message (str (LocalDate/from time)
+    (when-not (.isValidDay year-month day)
+      (let [message (str (LocalDate/from time)
                                    " can not have day changed to " day
                                    " since " day " is not a valid day of "
                                    year-month)]
                   (throw (ex-info message {:value day
                                            :conflict :day
-                                           :time time})))))))
+                                           :time time}))))
+    
+    (let [new-time (.with time ChronoField/DAY_OF_MONTH day)]
+      (if-not (has-hour? time)
+        new-time
+        (let [hour (. time get ChronoField/HOUR_OF_DAY)]
+          (if (= hour (.get new-time ChronoField/HOUR_OF_DAY))
+            new-time
+            (throw (ex-info
+                    (str (LocalDate/from time)
+                         " can not have day changed to " day
+                         " since there is a gap at " (LocalTime/from time) ".")
+                    {:value day
+                     :conflict :day
+                     :time time}))))))))
+
+(defn- valid-day? [time day]
+  (let [[^Integer y ^Integer m _] (year-month-day time)]
+    (.isValidDay (YearMonth/of y m) day)))
+
+(defn last-day-of-month [^Temporal time]
+  (when-not (has-year-month-day? time)
+    (throw (ex-info (str (class time) " does not have day")
+                    {:conflict :class :value time})))
+  (. time with ChronoField/DAY_OF_MONTH (. (YearMonth/from time) lengthOfMonth)))
+
+(defn with-day 
+  "a time with day set to value unless the remaining values would render
+  it an invalid time for that day. The time will be at the later
+  occation when hitting an overlap. The time is not adjusted in other
+  ways. An ExceptionInfo with :conflict having value :day would be thrown
+  on erroneous conditions"
+  [^Temporal time ^Integer day & [{:keys [adjust]}]]
+  (when (or (< 31 day) (> 1 day))
+    (throw (ex-info (str day " is not a valid value for day") 
+                    {:value day
+                     :conflict :day})))
+  (when-not (has-year-month-day? time)
+    (throw (ex-info (str "type " (class time)
+                         " does not have year month or day")
+                    {:value time
+                     :conflict :class})))
+  (if adjust
+    (if (valid-day? time day)
+      (.with time ChronoField/DAY_OF_MONTH day)
+      (last-day-of-month time))
+    (with-day-exact time day)))
 
 (defn with-hour
   "a time with hour set to value unless the remaining values would
@@ -159,41 +259,41 @@
   later occation when hitting an overlap. The time is not adjusted
   in other ways. An ExceptionInfo with :conflict having value :hour
   would be thrown on erroneous conditions"
-  [^ZonedDateTime time hour & [{:keys [adjust]}]]
+  [^Temporal time ^Integer hour & [{:keys [adjust]}]]
   (if (or (< 23 hour) (> 0 hour))
-    (let [message (str (LocalDateTime/from time)
-                           " can not have hour changed to " hour
-                           " since " hour " is an invalid hour")]
-          (throw (ex-info message {:value hour
-                                   :conflict :hour
-                                   :time time})))
-    
-    (let [new-time (.withHour time hour)]
-      (if adjust
-        new-time
-        (if (= hour (.getHour new-time))
-          new-time
-          (let [message (str (LocalDateTime/from time)
-                             " can not have hour changed to " hour
-                             " since there is a gap.")]
-            (throw (ex-info message {:value hour
-                                     :conflict :hour
-                                     :time time}))))))))
+    (let [message (str hour " is not a valid hour")]
+      (throw (ex-info message {:value hour
+                               :conflict :hour
+                               :time time})))
+    (do (when-not (has-hour? time)
+          (throw (ex-info (str "Type " (class time)
+                               " does not have hour field")
+                          {:value time
+                           :conflict :class})))
+        (let [new-time (.with time ChronoField/HOUR_OF_DAY hour)]
+          (if adjust
+            new-time
+            (if (= hour (.get new-time ChronoField/HOUR_OF_DAY))
+              new-time
+              (let [message (str (LocalDateTime/from time)
+                                 " can not have hour changed to " hour
+                                 " since there is a gap.")]
+                (throw (ex-info message {:value hour
+                                         :conflict :hour
+                                         :time time})))))))))
 
 (defn with-minute 
   "a time with minute set to value unless the remaining values would
   render it an invalid time for that month. The time is not adjusted 
   in other ways. An ExceptionInfo with :conflict having value 
   :month would be thrown on erroneous conditions"
-  [^ZonedDateTime time minute & [{:keys [adjust]}]]
+  [^Temporal time ^Integer minute & [{:keys [adjust]}]]
   (if (or (< 59 minute) (> 0 minute))
-    (let [message (str (LocalDateTime/from time)
-                           " can not have minute changed to " minute
-                           " since " minute " is an invalid minute")]
+    (let [message (str minute " is an invalid minute")]
           (throw (ex-info message {:value minute
                                    :conflict :minute
                                    :time time})))
-    (.withMinute time minute)))
+    (.with time ChronoField/MINUTE_OF_HOUR minute)))
 
 (defn with-second 
   "a time with second set to value unless the remaining values would
@@ -201,15 +301,18 @@
   later occation when hitting an overlap. The time is not adjusted 
   in other ways. An ExceptionInfo with :conflict having value 
   :second would be thrown on erroneous conditions"
-  [^ZonedDateTime time second]
+  [^Temporal time ^Integer second]
   (if (or (< 59 second) (> 0 second))
-    (let [message (str (LocalDateTime/from time)
-                           " can not have second changed to " second
-                           " since " second " is an invalid second")]
+    (let [message (str  second " is an invalid second")]
           (throw (ex-info message {:value second
                                    :conflict :second
                                    :time time})))
-    (.withSecond time second)))
+    (do (when-not (has-hour-minute-second? time)
+          (throw (ex-info (str "Type " (class time)
+                               " does not have hour minutes or seconds")
+                          {:value time
+                           :conflict :class})))
+        (.with time ChronoField/SECOND_OF_MINUTE second))))
 
 (defn with-millis 
   "a time with millis set to value unless the remaining values would
@@ -217,15 +320,13 @@
   in other ways. An ExceptionInfo with :conflict having value 
   :millis would be thrown on erroneous conditions. Note that this 
   represents fractions of a second and would overwrite the nanos"
-  [^ZonedDateTime time millis]
+  [^Temporal time ^Integer millis]
   (if (or (< 999 millis) (> 0 millis))
-    (let [message (str (LocalDateTime/from time)
-                           " can not have millis changed to " millis
-                           " since " millis " is an invalid millisecond")]
+    (let [message (str millis " is an invalid millisecond")]
           (throw (ex-info message {:value millis
                                    :conflict :millis
                                    :time time})))
-    (.withNano time (* 1000000 millis))))
+    (.with time ChronoField/MILLI_OF_SECOND millis)))
 
 (defn with-nano
   "a time with nanos set to value unless the remaining values would
@@ -233,15 +334,13 @@
   in other ways. An ExceptionInfo with :conflict having value 
   :nano would be thrown on erroneous conditions. Note that this 
   represents fractions of a second and would overwrite the millis"
-  [^ZonedDateTime time nanos]
+  [^Temporal time ^Integer nanos]
   (if (or (< 999999999 nanos) (> 0 nanos))
-    (let [message (str (LocalDateTime/from time)
-                           " can not have nanos changed to " nanos
-                           " since " nanos " is an invalid nanosecond")]
+    (let [message (str nanos " is an invalid nanosecond")]
           (throw (ex-info message {:value nanos
                                    :conflict :nano
                                    :time time})))
-    (.withNano time nanos)))
+    (.with time ChronoField/NANO_OF_SECOND nanos)))
 
 
 (def ^ZonedDateTime epoch 
@@ -316,58 +415,114 @@
 
 (defn add-duration
   "a time changed by duration time"
-  [^ZonedDateTime time duration]
+  [^Temporal time ^Duration duration]
   (. time plus duration))
 
-(defn add-seconds [^ZonedDateTime time seconds]
-  "a time with seconds added"
-  (. time plusSeconds seconds))
+(defn add-seconds
+  [^Temporal time ^Integer seconds]
+  (if (.isSupported time ChronoUnit/SECONDS)
+    (. time plus seconds ChronoUnit/SECONDS)
+    (throw (ex-info (str "Type "  (class time)
+                         " does not support seconds") {:conflict :class
+                                                 :value time}))))
 
 #_(defn remove-seconds [time seconds]
   (. time minusSeconds seconds))
 
 (defn add-days 
   "a time with days added"
-  [^ZonedDateTime time days]
-  (. time plusDays days))
+   [^Temporal time ^Integer days]
+  (if (.isSupported time ChronoUnit/DAYS)
+    (. time plus days ChronoUnit/DAYS)
+    (throw (ex-info "Type " (str (class time))
+                    " does not support seconds" {:conflict :class
+                                                 :value time}))))
+
 
 #_(defn remove-days [time days]
   (. time minusDays days))
 
 (defn add-hours
   "a time with hours added"
-  [^ZonedDateTime time hours]
-  (. time plusHours hours))
+  [^Temporal time ^Integer hours]
+  (if (.isSupported time ChronoUnit/HOURS)
+    (. time plus hours ChronoUnit/HOURS)
+    (throw (ex-info (str "Type "  (class time)
+                         " does not support hours")
+                    {:conflict :class
+                                               :value time}))))
 
 #_(defn remove-days [time days]
   (. time minusDays days))
 
 (defn add-minutes
   "a time with minutes added"
-  [^ZonedDateTime time minutes]
-  (. time plusMinutes minutes))
+  [^Temporal time ^Integer minutes]
+  (if (.isSupported time ChronoUnit/MINUTES)
+    (. time plus minutes ChronoUnit/MINUTES)
+    (throw (ex-info (str "Type " (class time)
+                         " does not support minutes")
+                    {:conflict :class
+                                                 :value time}))))
 
 (defn add-millis
   "a time with millis added"
-  [^ZonedDateTime time millis]
-  (. time plusNanos (* 1000000 millis)))
+    [^Temporal time ^Integer millis]
+  (if (.isSupported time ChronoUnit/MILLIS)
+    (. time plus millis ChronoUnit/MILLIS)
+    (throw (ex-info (str "Type " (class time)
+                         " does not support millis")
+                    {:conflict :class
+                     :value time}))))
 
 (defn add-nanos
   "a time with nanos added"
-  [^ZonedDateTime time nanos]
-  (. time plusNanos nanos))
 
-(defn add-years [^ZonedDateTime time years]
+   [^Temporal time ^Integer nanos]
+  (if (.isSupported time ChronoUnit/NANOS)
+    (. time plus nanos ChronoUnit/NANOS)
+    (throw (ex-info  (str "Type " (class time)
+                          " does not support nanos") {:conflict :class
+                                                 :value time}))))
+
+(defn add-years 
   "a time with years added"
-  (. time plusYears years))
+  [^Temporal time ^Integer years]
+  (if (.isSupported time ChronoUnit/YEARS)
+    (. time plus years ChronoUnit/YEARS)
+    (throw (ex-info (str "Type " (class time)
+                     " does not support years") {:conflict :class
+                                                 :value time}))))
 
-(defn just-after [ time]
+(defn just-after [^Temporal time]
   "a time just after supplied"
-  (. time plusNanos 1))
+  (cond (.isSupported time ChronoUnit/NANOS )
+        (.plus time 1 ChronoUnit/NANOS
+               )
+        (.isSupported time ChronoUnit/MILLIS)
+        (.plus time 1 ChronoUnit/MILLIS
+               )
+        (.isSupported time ChronoUnit/SECONDS)
+        (.plus time 1 ChronoUnit/SECONDS
+               )
+        :else (throw (ex-info  (str "Type " (class time)
+                                    "does not support just after")
+                               {})))
+  )
 
-(defn just-before [ time]
-  "a time just before time"
-  (. time minusNanos 1))
+(defn just-before [^Temporal  time]
+  (cond (.isSupported time ChronoUnit/NANOS )
+        (.plus time -1 ChronoUnit/NANOS
+               )
+        (.isSupported time ChronoUnit/MILLIS)
+        (.plus time -1 ChronoUnit/MILLIS
+               )
+        (.isSupported time ChronoUnit/SECONDS)
+        (.plus time -1 ChronoUnit/SECONDS
+               )
+        :else (throw (ex-info  (str "Type " (class time)
+                                    "does not support just before")
+                               {}))))
 
 #_(defn previous-day [^ZonedDateTime time]
   (. time minusDays 1))
@@ -377,8 +532,8 @@
 
 (defn time-part-of
   "The time part, except the date part"
-  [^ZonedDateTime date-time]
-  (.toLocalTime date-time))
+  [^Temporal date-time]
+  (.query date-time (TemporalQueries/localTime)))
 
 (defn time-part
   "a time part, without date part, from its components.
@@ -402,13 +557,13 @@
          (LocalTime/of h m s))))
 
 (defn date-part-of "date part of time, without fractions of day"
-  [^ZonedDateTime time]
-  (.toLocalDate time))
+  [^Temporal time]
+  (.query time (TemporalQueries/localDate)))
 
-(defn with [^ZonedDateTime time ^TemporalField adjuster]
-  (. time with adjuster))
+(defn with [^Temporal time ^TemporalAdjuster adjuster]
+  (.with time adjuster))
 
-(defn with-time-part [^ZonedDateTime time time-part & [{:keys [adjust]}]]
+(defn with-time-part [^Temporal time ^TemporalAdjuster time-part & [{:keys [adjust]}]]
   (let [a (. time with time-part)
         new-time-part (time-part-of a)]
     (if (= time-part new-time-part)
@@ -420,46 +575,82 @@
                              new-time-part)
                         {:value time-part
                          :conflict :time-part}))))))
+(defn date-part
+  "date part from its components"
+  [y m d & [options]]
+  (date-part-of (of y m d 0 0 0 options)))
 
-(defn with-date-part [^ZonedDateTime time ^LocalDate date-part & [{:keys [adjust]}]]
-  (let [a (. time with date-part)]
-    (if adjust
-      a
-      (let [new-date-part (date-part-of a)]
-        (cond
-          (not (= date-part new-date-part))
-          (throw (ex-info (str date-part " is not a valid date for "
-                               (.toLocalDateTime time) ". It would be adjusted to " (.toLocalDateTime a) ".")
-                          {:value date-part
-                           :conflict :date-part}))
-          (not (= (time-part-of time) (time-part-of a)))
-          (throw (ex-info (str date-part " is not a valid date for "
-                               (.toLocalDateTime time) ". Time part would be adjusted to " (time-part-of a) ".")
-                          {:value date-part
-                           :conflict :date-part}))
-          :else a)))))
+(defn with-date-part [^Temporal time ^Temporal date & [{:keys [adjust]}]]
+  (if-let [dp (date-part-of date)]
+    (let [a (. time with dp)]
+      (if adjust
+        a
+        (let [new-date-part (date-part-of a)]
+          (cond
+            (not (= dp new-date-part))
+            (throw (ex-info (str dp " is not a valid date for "
+                                 time ". It would be adjusted to " (date-part-of a) ".")
+                            {:value date-part
+                             :conflict :date-part}))
+            (not (= (time-part-of time) (time-part-of a)))
+            (throw (ex-info (str dp " is not a valid date for "
+                                 time ". Time part would be adjusted to " (time-part-of a) ".")
+                            {:value date-part
+                             :conflict :date-part}))
+            :else a))))
+    (ex-info (str  "supplied date " date " does not contain a date")
+             {:value date
+              :conflict :class})))
 
-(defn with-time-zone [^ZonedDateTime time ^ZoneId time-zone]
-  (let [datetime (. time toLocalDateTime)
-        value (. time withZoneSameLocal time-zone)
-        datetime-of-value (. value toLocalDateTime)]
-    (if (= datetime datetime-of-value)
-      value
-      (throw (ex-info (str datetime " is not valid in "
-                           time-zone " and would become "
-                           datetime-of-value ".")
-                      {:value time-zone
-                       :conflict :time-zone
-                       :time time})))))
-
-(defn adjust-to-time-zone [^ZonedDateTime time ^ZoneId time-zone]
-  (. time withZoneSameInstant time-zone))
+(defn with-time-zone [^Temporal time ^ZoneId time-zone]
+  (let [date-part (.query time (TemporalQueries/localDate))
+        time-part (.query time (TemporalQueries/localTime))]
+    (when-not date-part
+      (throw (ex-info (str "There is no date in " (class time))
+                      {:value time
+                       :conflict :class})))
+    (when-not time-part
+      (throw (ex-info (str "There is no time in " (class time))
+                      {:value time
+                       :conflict :class})))
+    (let [value (ZonedDateTime/of date-part time-part time-zone) 
+          datetime-of-value (. value toLocalDateTime)
+          local-of-input (LocalDateTime/of date-part time-part)]
+      (if (= local-of-input datetime-of-value)
+        value
+        (throw (ex-info (str local-of-input " is not valid in "
+                             time-zone " and would become "
+                             datetime-of-value ".")
+                        {:value time-zone
+                         :conflict :time-zone
+                         :time time}))))))
 
 (defn default-time-zone []
   (ZoneId/systemDefault))
 
-(defn time-zone-of [^ZonedDateTime time]
-  (.getZone time))
+(defn adjust-to-time-zone [^Temporal time ^ZoneId time-zone]
+  (let [current-zone (or (.query time (TemporalQueries/zone))
+                         (default-time-zone))
+        
+        current-date (.query time (TemporalQueries/localDate))
+        current-time (.query time (TemporalQueries/localTime))]
+    (when-not current-time
+      (throw (ex-info (str "There is no time in " (class time))
+                      {:value time
+                       :conflict :class})))
+    (when-not date-part
+      (throw (ex-info (str "There is no date in " (class time))
+                      {:value time
+                       :conflict :class})))
+    (let [dt (LocalDateTime/of current-date current-time)]
+        (if (instance? ZoneId current-zone)
+          (.withZoneSameInstant (.atZone dt ^ZoneId current-zone) time-zone)
+          (.atZoneSameInstant (.atOffset dt current-zone) time-zone)))))
+
+
+
+(defn ^ZoneId time-zone-of [^TemporalAccessor time]
+  (.query time (TemporalQueries/zoneId)))
 
 (defn time-zone [name]
   (try (ZoneId/of name ZoneId/SHORT_IDS)
@@ -511,36 +702,7 @@
                 (single-value)
                 (some-> (ZoneId/of)))))))
 
-(def units #{:millenia :century :decade 
-             :year :month :day 
-             :hour :minute :second 
-             :millis :micros})
 
-(defn truncate
-  "truncate values until suplied unit"
-  [^ZonedDateTime time unit]
-  (condp = unit
-    :millenia (of (* 1000 (int (/ (.getYear time) 1000))))
-    :century (of (* 100 (int (/ (.getYear time) 100))))
-    :decade  (of (* 10 (int (/ (.getYear time) 10))))
-    :year (of (.getYear time))
-    :month (of (.getYear time) (. time getMonthValue))
-    :day (.truncatedTo time ChronoUnit/DAYS)
-    :hour (.truncatedTo time ChronoUnit/HOURS)
-    :minute (.truncatedTo time ChronoUnit/MINUTES)
-    :second (.truncatedTo time ChronoUnit/SECONDS)
-    :millis (.truncatedTo time ChronoUnit/MILLIS)
-    :micros (.truncatedTo time ChronoUnit/MICROS)
-    (throw (ex-info (str "Don't know how to truncate to " unit)
-                    {:possible units
-                     :got unit}))))
-
-
-
-(defn date-part
-  "date part from its components"
-  [y m d & [options]]
-  (date-part-of (of y m d 0 0 0 options)))
 
 (defn with-earlier-at-overlap
   "pick the earlier alternative if time is at overlap"
@@ -563,8 +725,15 @@
 (defn day-of-week? [object]
   (instance? DayOfWeek object))
 
-(defn day-of-week [^ZonedDateTime timestamp]
-  (DayOfWeek/from timestamp))
+(defn has-day-of-week? [^TemporalAccessor time]
+  (.isSupported time ChronoField/DAY_OF_WEEK))
+
+(defn day-of-week [^TemporalAccessor timestamp]
+  (if (has-day-of-week? timestamp)
+    (DayOfWeek/from timestamp)
+    (throw (ex-info (str "Type  " (class timestamp) " does not have day of week." )
+                       {:value timestamp
+                        :conflict :class}))))
 
 (defn day-of-week-nr [^DayOfWeek day-of-week]
   (.getValue day-of-week))
@@ -575,51 +744,80 @@
         (string? x)
         (DayOfWeek/valueOf x)))
 
-(defn adjust-day-of-week [^ZonedDateTime time ^DayOfWeek day]
-  (. time with day))
+(defn adjust-day-of-week [^Temporal time ^DayOfWeek day]
+  (if (has-day-of-week? time)
+    (. time with day)
+    (throw (ex-info (str "Type  " (class time) " does not have day of week." )
+                       {:value time
+                        :conflict :class}))))
 
-(defn days-of-month [time]
-  (-> (YearMonth/from time)
+(defn has-year? [^TemporalAccessor time]
+  (.isSupported time ChronoField/YEAR))
+
+(defn has-month? [^TemporalAccessor time]
+  (.isSupported time ChronoField/MONTH_OF_YEAR))
+
+(defn days-of-month [^TemporalAccessor time]
+    (-> (YearMonth/from time)
       (. lengthOfMonth)))
 
-(defn first-day-of-month [^ZonedDateTime time]
-  (. time withDayOfMonth 1))
-(defn last-day-of-month [^ZonedDateTime time]
-  (let [last-day (. (YearMonth/from time) lengthOfMonth)]
-    (. time withDayOfMonth last-day)))
-(defn begining-of-month [^ZonedDateTime time]
-  (-> (. time with LocalTime/MIDNIGHT)
-      (. withDayOfMonth 1)))
-(defn end-of-month [^ZonedDateTime time]
-  (let [first-next-month (MonthDay/of (+ 1 (.getMonthValue time)) 1)]
-    (-> (. time with first-next-month)
-        (. with (LocalTime/MIDNIGHT))
-        (just-before))))
+(defn first-day-of-month [^Temporal time]
+  (when-not (has-year-month-day? time))
+  (.with time ChronoField/DAY_OF_MONTH 1))
 
-(defn next-same-day-of-week [^ZonedDateTime time ^DayOfWeek day-of-week]
+
+
+(defn begining-of-month [^Temporal time]
+  (if (and (has-hour-minute-second? time)
+           (has-year-month-day? time))
+    (let [^Temporal wtp (with-time-part time LocalTime/MIDNIGHT)]
+      (.with wtp ChronoField/DAY_OF_MONTH 1))
+      (throw (ex-info (str "Type  " (class time) " does not have date and time." )
+                       {:value time
+                        :conflict :class}))))
+
+
+(defn end-of-month [^Temporal time]
+  (if (and (has-hour-minute-second? time)
+           (has-year-month-day? time))
+    (let [first-next-month (MonthDay/of (inc (.get time (ChronoField/MONTH_OF_YEAR)))
+                                        1)]
+      (-> time
+          (.with ChronoField/DAY_OF_MONTH (.getDayOfMonth first-next-month))
+          (.with ChronoField/MONTH_OF_YEAR (.getMonthValue first-next-month))
+          (with-time-part LocalTime/MIDNIGHT)
+          (just-before)))
+    (throw (ex-info (str "Type  " (class time) " does not have date and time." )
+                       {:value time
+                        :conflict :class}))))
+
+(defn next-same-day-of-week [^TemporalAdjuster time ^DayOfWeek day-of-week]
   (-> (. time adjustInto day-of-week)
       (add-days 7)))
 
-(defn previous-same-day-of-week [^ZonedDateTime time ^DayOfWeek day-of-week]
-  (let [yesterday (add-days time -1)]
+(defn previous-same-day-of-week [^TemporalAdjuster time ^DayOfWeek day-of-week]
+  (let [^TemporalAdjuster yesterday (add-days time -1)]
     (. yesterday adjustInto day-of-week)))
 
 (defn transitions
   "Sequence of time transitions after time, usually DST transistions,
   in pairs of time just before and after transition"
-  [^ZonedDateTime time]
-  (let [zoneId (.getZone time)
-        rules (.getRules zoneId)
-        producer (fn producer [^ZonedDateTime t]
-                   (when-let [transition (. rules nextTransition (. t toInstant))]
-                     (let [localBefore (-> (. transition getDateTimeBefore)
-                                           (just-before)) 
-                           localAfter (. transition getDateTimeAfter)
-                           before (ZonedDateTime/of localBefore zoneId)
-                           after (ZonedDateTime/of localAfter,  zoneId)]
-                       
-                       (cons [before  after] (lazy-seq (producer after))))))]
-    (producer time)))
+  [^TemporalAccessor time]
+  (if-let [zoneId (time-zone-of time)]
+    (let [rules (.getRules zoneId)
+          producer (fn producer [^ZonedDateTime t]
+                     (when-let [transition (. rules nextTransition (. t toInstant))]
+                       (let [localBefore (-> (. transition getDateTimeBefore)
+                                             (just-before)) 
+                             localAfter (. transition getDateTimeAfter)
+                             before (ZonedDateTime/of localBefore zoneId)
+                             after (ZonedDateTime/of localAfter,  zoneId)]
+                         
+                         (cons [before  after] (lazy-seq (producer after))))))]
+      (producer time))
+    (throw (ex-info (str "Type  " (class time) " does not have time zone." )
+                       {:value time
+                        :conflict :class}))))
 
 
 (defn of-time-zone
@@ -627,7 +825,7 @@
   ([year month day hour min sec time-zone & [options]] 
    (-> epoch
        (with-time-zone time-zone)
-       (.withHour 0)
+       (with-hour 0)
        (with-year year options)
        (with-month month options)
        (with-day day options) 
@@ -648,13 +846,13 @@
 
 (defn day-of-year
   "days since beginning of year of time, where 1 is january 1"
-  [^ZonedDateTime time]
-  (.getDayOfYear time))
+  [^TemporalAccessor time]
+  (.get time ChronoField/DAY_OF_YEAR))
 
 (defn week-nr
   "ISO week number of time. Commonly used in Europe"
-  [^ZonedDateTime time]
-   (let [date (date-part-of time)
+  [^TemporalAccessor time]
+   (let [^TemporalAccessor date (date-part-of time)
          weekOfYear (.weekOfWeekBasedYear (WeekFields/ISO))]
      (. date get weekOfYear)))
 

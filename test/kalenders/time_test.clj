@@ -32,12 +32,7 @@
   (is (= (time/of 2021 2 28 0 0 0)
          (time/of 2021 2 31 0 0 0 {:adjust :true})))
   (is (= (time/of 2021 2 28 0 0 0)
-         (time/of 2021 2 29 0 0 0 {:adjust :true :month-days true})))
-  (try
-    (time/of 2021 2 31 0 0 0 {:adjust :true :month-days true})
-    (is (not "found"))
-    (catch clojure.lang.ExceptionInfo e
-         )))
+         (time/of 2021 2 29 0 0 0 {:adjust :true :month-days true}))))
 
 (deftest ordering
   (let [a (time/of 2020 1 2 3 4 5)
@@ -162,21 +157,15 @@
                     (select-keys (ex-data e) [:value :conflict])))
              (is (string/includes? (ex-message e) "gap"))))
   (is (= (time/of 2021 02 28) (time/with-day (time/of 2021 02 01) 30 {:adjust true})))
-  (is (= (time/of 2021 02 28) (time/with-day (time/of 2021 02 01) 29 {:adjust true :month-days true})))
-  (try (time/with-day (time/of 2021 2 01) 30 {:adjust true :month-days true})
-       (is (not "hit"))
-       (catch clojure.lang.ExceptionInfo e
-         (is (= {:value 30,
-                 :conflict :day}
-                (select-keys (ex-data e) [:value :conflict])))
-         (is (string/includes? (ex-message e) "Feb"))))
+  
+  
   (try (time/with-day (time/of 2021 2 01) 32 {:adjust true})
        (is (not "hit"))
        (catch clojure.lang.ExceptionInfo e
          (is (= {:value 32,
                  :conflict :day}
                 (select-keys (ex-data e) [:value :conflict])))
-         (is (string/includes? (ex-message e) "no month")))))
+         (is (string/includes? (ex-message e) "valid")))))
 
 (deftest with-hour
   (is (= (time/of 2020 1 2 23 4 5)
@@ -415,36 +404,21 @@
        (time/with-date-part
          (time/of 2010 01 01 02 30 02)
          (time/date-part 1980 4 6 {:adjust 1})
-         {:adjust true}))
-  )
+         {:adjust true})))
 
  
 
 
-(deftest truncate
-  (let [a (time/of 2121 10 21 13 14 15)
-        b (time/with-nano (time/of 2121 10 21 13 14 15) 1002003)]
-    (is (= (time/of 2120) (time/truncate a :decade)))
-    (is (= (time/of 2100) (time/truncate a :century)))
-    (is (= (time/of 2000) (time/truncate a :millenia)))
-    (is (= (time/of 2121) (time/truncate a :year)))
-    (is (= (time/of 2121 10) (time/truncate a :month)))
-    (is (= (time/of 2121 10 21) (time/truncate a :day)))
-    (is (= (time/of 2121 10 21 13) (time/truncate a :hour)))
-    (is (= (time/of 2121 10 21 13 14) (time/truncate a :minute)))
-    (is (= (time/of 2121 10 21 13 14 15) (time/truncate a :second)))
-    (is (= (time/of 2121 10 21 13 14 15) (time/truncate a :millis)))
-    (is (= (time/with-millis (time/of 2121 10 21 13 14 15) 1) (time/truncate b :millis)))
-    (is (= (time/with-nano (time/of 2121 10 21 13 14 15) 1002000) (time/truncate b :micros)))
-    (try (time/truncate b :birds)
-      (is (not "hit"))
-      (catch clojure.lang.ExceptionInfo e
-        (is (and (string/includes? (ex-message e) ":birds")))))))
+
 
 
 (deftest overlapp
       (let [dump (fn [q text ] (println (str text q)) q)
-            [from to] (first (time/transitions (time/with-time-zone (time/of 2020 06 01) stockholm)))]
+            [from to] (-> (time/with-time-zone
+                            (time/of 2020 06 01)
+                            stockholm)
+                          (time/transitions)
+                          (first))]
         (is (= (time/time-part-of to)
                (-> (time/just-after from)
                    (time/with-later-at-overlap)

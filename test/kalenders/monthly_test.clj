@@ -14,12 +14,13 @@
            (time/end-of-month (time/of 2021 3))]
            (m/start-until-end-of-month 20 (time/time-part 9 14 10)
                                        (time/of 2021 3 23)))
-        "During")
-   (t/is (= [(time/of 2021 3 30 9 14 10)
-           (time/end-of-month (time/of 2021 3))]
+        "During"))
+(t/deftest extra 
+  (t/is (= [(time/of 2021 3 30 9 14 10)
+            (time/end-of-month (time/of 2021 3))]
            (m/start-until-end-of-month 30 (time/time-part 9 14 10)
                                        (time/of 2021 2 23)))
-         "Abandon non valid start"))
+        "Abandon non valid start"))
 
 (t/deftest monthly-start-test
   (t/is (= [(time/of 2021 3 01)

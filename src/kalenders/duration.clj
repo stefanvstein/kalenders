@@ -38,18 +38,18 @@
   (. duration negated))
 
 (defn multiplied-by
-  ([^Duration duration n]
+  ([^Duration duration ^Long n]
    (. duration multipliedBy n))
-  ([^Duration duration n & ns]
-   (reduce (fn [a x] (. a multipliedBy x))
+  ([^Duration duration ^Long n & ns]
+   (reduce (fn [^Duration a ^Long x] (. a multipliedBy x))
            (multiplied-by duration n)
            ns)))
 
 (defn divided-by
-  ([^Duration duration n]
+  ([^Duration duration ^Long n]
    (. duration dividedBy n))
-  ([^Duration duration n & ns]
-   (reduce (fn [a x] (. a dividedBy x))
+  ([^Duration duration ^Long n & ns]
+   (reduce (fn [^Duration a ^Long x] (. a dividedBy x))
            (divided-by duration n)
            ns)))
 
@@ -76,19 +76,19 @@
 
  
 (defn plus
-  ([^Duration a b]
+  ([^Duration a ^Duration b]
    (. a plus b))
-  ([a b & xs]
-   (reduce (fn [acc x]
+  ([^Duration a ^Duration b & xs]
+   (reduce (fn [^Duration acc ^Duration x]
              (. acc plus x))
            (. a plus b)
            xs)))
 
 (defn minus
-  ([^Duration a b]
+  ([^Duration a ^Duration b]
    (. a minus b))
-  ([a b & xs]
-   (reduce (fn [acc x] (minus acc x))
+  ([^Duration a ^Duration b & xs]
+   (reduce (fn [^Duration acc ^Duration x] (minus acc x))
            (minus a b)
            xs)))
 
