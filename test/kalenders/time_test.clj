@@ -400,9 +400,10 @@
        (is (not "hit"))
        (catch clojure.lang.ExceptionInfo e
          (is (string/includes? (ex-message e) "adjusted"))))
-  (is= (time/of 1980 04 06 03 30 02)
+  
+  (is= (time/of-time-zone 1980 04 06 03 30 02 stockholm)
        (time/with-date-part
-         (time/of 2010 01 01 02 30 02)
+         (time/of 2010 01 01 02 30 02 stockholm)
          (time/date-part 1980 4 6 {:adjust 1})
          {:adjust true})))
 
