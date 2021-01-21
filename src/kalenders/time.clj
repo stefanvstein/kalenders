@@ -8,8 +8,7 @@
            [java.util.regex Pattern]
            [java.util Locale])
   (:require [clojure.string :as string]
-            [clojure.set :as set]
-            [kalenders.time :as time]))
+            [clojure.set :as set]))
 
 (defn now [] ^ZonedDateTime
   (ZonedDateTime/now))
@@ -18,16 +17,18 @@
   (.isSupported time ChronoField/HOUR_OF_DAY))
 
 (defn has-hour-minute-second? [^TemporalAccessor time]
-  (and (.isSupported time ChronoField/HOUR_OF_DAY)
-       (.isSupported time ChronoField/MINUTE_OF_HOUR)
-       (.isSupported time ChronoField/SECOND_OF_MINUTE)))
+  (and
+   (.isSupported time ChronoField/HOUR_OF_DAY)
+   (.isSupported time ChronoField/MINUTE_OF_HOUR)
+   (.isSupported time ChronoField/SECOND_OF_MINUTE)))
 
 (defn hour-minute-second
   "a vector with [hours minutes seconds] values of time "
   [^TemporalAccessor time]
   (when-not (has-hour-minute-second? time)
-    (ex-info (str "object of type " (str (class time))
-                  " does not support hour minute and second" {})))
+    (throw (ex-info (str "object of type " (str (class time))
+                        " does not support hour minute and second")
+                   {})))
   [(.get time ChronoField/HOUR_OF_DAY)
    (.get time ChronoField/MINUTE_OF_HOUR)
    (.get time ChronoField/SECOND_OF_MINUTE)])
@@ -45,14 +46,15 @@
   "a vector with [hours minutes seconds millis] values of time "
   [^TemporalAccessor time]
   (when-not (has-hour-minute-second-millis? time)
-    (ex-info (str "object of type " (str (class time))
-                  " does not support hour minute second and millis" {})))
+    (throw (ex-info (str "object of type " (str (class time))
+                         " does not support hour minute second and millis")
+                    {:conflict :class})))
   [(.get time ChronoField/HOUR_OF_DAY)
    (.get time ChronoField/MINUTE_OF_HOUR)
    (.get time ChronoField/SECOND_OF_MINUTE)
    (.get time ChronoField/MILLI_OF_SECOND)])
 
-(defn hour-minute-second-nano? [^TemporalAccessor time]
+(defn has-hour-minute-second-nanos? [^TemporalAccessor time]
   (and (.isSupported time ChronoField/HOUR_OF_DAY)
        (.isSupported time ChronoField/MINUTE_OF_HOUR)
        (.isSupported time ChronoField/SECOND_OF_MINUTE)
@@ -61,9 +63,10 @@
 (defn hour-minute-second-nanos
   "a vector with [hours minutes seconds nanos] values of time "
   [^TemporalAccessor time]
-  (when-not (hour-minute-second-nano? time)
-    (ex-info (str "object of type " (str (class time))
-                  " does not support hour minute second and nano" {})))
+  (when-not (has-hour-minute-second-nanos? time)
+    (throw (ex-info (str "object of type " (str (class time))
+                         " does not support hour minute second and nano")
+                    {:conflict :class})))
   [(.get time ChronoField/HOUR_OF_DAY)
    (.get time ChronoField/MINUTE_OF_HOUR)
    (.get time ChronoField/SECOND_OF_MINUTE)
@@ -77,12 +80,14 @@
   (and (.isSupported time ChronoField/YEAR)
        (.isSupported time ChronoField/MONTH_OF_YEAR)
        (.isSupported time ChronoField/DAY_OF_MONTH)))
+
 (defn year-month
   "a vector with [year month] values of time "
   [^TemporalAccessor time]
   (when-not (has-year-month? time)
-    (ex-info (str "Type " (str (class time))
-                  " does not support year and month." {})))
+    (throw (ex-info (str "Type " (str (class time))
+                         " does not support year and month.")
+                    {})))
   [(.get time ChronoField/YEAR)
    (.get time ChronoField/MONTH_OF_YEAR)])
 
@@ -90,8 +95,9 @@
   "a vector with [year month day] values of time "
   [^TemporalAccessor time]
   (when-not (has-year-month-day? time)
-    (ex-info (str "object of type " (str (class time))
-                  " does not support year month and day" {})))
+    (throw (ex-info (str "object of type " (str (class time))
+                         " does not support year month and day")
+                    {})))
   [(.get time ChronoField/YEAR)
    (.get time ChronoField/MONTH_OF_YEAR)
    (.get time ChronoField/DAY_OF_MONTH)])
@@ -434,9 +440,10 @@
    [^Temporal time ^Integer days]
   (if (.isSupported time ChronoUnit/DAYS)
     (. time plus days ChronoUnit/DAYS)
-    (throw (ex-info "Type " (str (class time))
-                    " does not support seconds" {:conflict :class
-                                                 :value time}))))
+    (throw (ex-info (str "Type "  (class time)
+                         " does not support seconds")
+                    {:conflict :class
+                     :value time}))))
 
 
 #_(defn remove-days [time days]
@@ -506,7 +513,7 @@
         (.plus time 1 ChronoUnit/SECONDS
                )
         :else (throw (ex-info  (str "Type " (class time)
-                                    "does not support just after")
+                                    " does not support just after")
                                {})))
   )
 
@@ -521,7 +528,7 @@
         (.plus time -1 ChronoUnit/SECONDS
                )
         :else (throw (ex-info  (str "Type " (class time)
-                                    "does not support just before")
+                                    " does not support just before")
                                {}))))
 
 #_(defn previous-day [^ZonedDateTime time]
@@ -638,7 +645,7 @@
       (throw (ex-info (str "There is no time in " (class time))
                       {:value time
                        :conflict :class})))
-    (when-not date-part
+    (when-not current-date
       (throw (ex-info (str "There is no date in " (class time))
                       {:value time
                        :conflict :class})))
@@ -648,6 +655,16 @@
           (.atZoneSameInstant (.atOffset dt current-zone) time-zone)))))
 
 
+(defn without-time-zone [^TemporalAccessor time]
+  (let [date (.query time (TemporalQueries/localDate))
+        time-part (.query time (TemporalQueries/localTime))
+        zone (.query time (TemporalQueries/zone))]
+    (if zone
+      (cond (and date time-part) (LocalDateTime/of date time-part)
+            date date
+            time-part time-part)
+      time)
+    ))
 
 (defn ^ZoneId time-zone-of [^TemporalAccessor time]
   (.query time (TemporalQueries/zoneId)))

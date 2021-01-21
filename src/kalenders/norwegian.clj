@@ -10,14 +10,14 @@
 (defn skjærtorsdag? [time]
   (let [[y m d] (time/year-month-day time)
         easter (easter/easter y)
-        [_ mm dd] (time/year-month-day (time/add-days easter -2))]
+        [_ mm dd] (time/year-month-day (time/add-days easter -3))]
     (and (= mm  m)
          (= dd d))))
 
 (defn langfredag? [time]
   (let [[y m d] (time/year-month-day time)
         easter (easter/easter y)
-        [_ mm dd] (time/year-month-day (time/add-days easter -1))]
+        [_ mm dd] (time/year-month-day (time/add-days easter -2))]
     (and (= mm  m)
          (= dd d))))
 
@@ -87,7 +87,7 @@
 (defn dymmelonsdag? [time]
   (let [[y m d] (time/year-month-day time)
         [_ mm dd] (-> (easter/easter y)
-                      (time/add-days -3)
+                      (time/add-days -4)
                       (time/year-month-day ))]
     (and (= mm  m)
          (= dd d))))
@@ -114,6 +114,11 @@
                       (time/year-month-day ))]
     (and (= mm  m)
          (= dd d))))
+
+(defn fridag? [time]
+  (or (første-mai? time)
+      (syttende-mai? time)
+      (helligdag? time)))
 
 (defn begrenset-arbeidstid? [time]
   (or (dymmelonsdag? time)
