@@ -3,7 +3,7 @@
   (:import [java.time ZonedDateTime Duration Instant ZoneId LocalTime DayOfWeek YearMonth MonthDay LocalDate LocalDateTime
             DateTimeException Month]
            [java.time.zone ZoneRulesException]
-           [java.time.temporal ChronoUnit ChronoField WeekFields TemporalField TemporalAccessor Temporal TemporalAdjuster TemporalQueries]
+           [java.time.temporal ChronoUnit ChronoField WeekFields TemporalField TemporalAccessor Temporal TemporalAdjuster TemporalQueries TemporalAdjusters]
            [java.time.format TextStyle]
            [java.util.regex Pattern]
            [java.util Locale])
@@ -670,6 +670,7 @@
   (.query time (TemporalQueries/zoneId)))
 
 (defn time-zone [name]
+  "Time zone by name"
   (try (ZoneId/of name ZoneId/SHORT_IDS)
        (catch ZoneRulesException e
          (throw (ex-info (.getMessage e)
@@ -715,9 +716,11 @@
           (let [names   (string/split name #"\s+")
                 data    (set/union (set (ZoneId/getAvailableZoneIds))
                                    (set (.keySet ZoneId/SHORT_IDS)))]
-            (-> (those-matching-all-case-insensitive data names)
-                (single-value)
-                (some-> (ZoneId/of)))))))
+            (or (some-> (get names name)
+                        (ZoneId/of))
+                (-> (those-matching-all-case-insensitive data names)
+                    (single-value)
+                    (some-> (ZoneId/of))))))))
 
 
 
@@ -755,11 +758,37 @@
 (defn day-of-week-nr [^DayOfWeek day-of-week]
   (.getValue day-of-week))
 
-(defn day-of-week-from [x]
-  (cond (int? x)
-        (DayOfWeek/of x)
-        (string? x)
-        (DayOfWeek/valueOf x)))
+(defn- week-day-names [locale]
+  (reduce (fn [a [day style]]
+            (let [k (. day  getDisplayName style locale)]
+              (assoc a (string/upper-case k) day)))
+          {}
+          (for [a (DayOfWeek/values) b (TextStyle/values)] [a b])))
+;;*******************
+(defn- all-values-in [m ks]
+  (into #{} (map #(get m %) ks)))
+
+(defn day-of-week-from
+  ([x]
+   (cond (int? x)
+         (DayOfWeek/of x)
+         (string? x)
+         (let [days (java.time.DayOfWeek/values)
+               m (zipmap (map str days) days)] 
+           (if-let [ v (get m (string/upper-case x))]
+             v
+             (throw (ex-info (str "There is no day called " x)
+                             {:value x
+                              :conflict :day-of-week})))))))
+(defn find-day-of-week
+  ([x locale]
+   (let [m (week-day-names locale)]
+     (or (get x m)
+         (->> [x]
+              (those-matching-all-case-insensitive (into [] (keys m)))
+              (all-values-in m)
+              (single-value))))))
+
 
 (defn adjust-day-of-week [^Temporal time ^DayOfWeek day]
   (if (has-day-of-week? time)
@@ -808,13 +837,36 @@
                        {:value time
                         :conflict :class}))))
 
-(defn next-same-day-of-week [^TemporalAdjuster time ^DayOfWeek day-of-week]
-  (-> (. time adjustInto day-of-week)
-      (add-days 7)))
+(defn next-same-day-of-week [^Temporal time ^DayOfWeek day-of-week]
+  (when (not (has-day-of-week? time))
+        (throw (ex-info (str (class time) " has no day of week.")
+                        {:conflict :class
+                         :value time})))
+  (when (not (has-year-month-day? time))
+    (throw (ex-info (str (class time) " has no date.")
+                    {:conflict :class
+                     :value time})))
+           
+           
+  (let [date (.query time (TemporalQueries/localDate))         
+        new-date (.with date  (TemporalAdjusters/next day-of-week)) ]
+    (.with time new-date)))
 
-(defn previous-same-day-of-week [^TemporalAdjuster time ^DayOfWeek day-of-week]
-  (let [^TemporalAdjuster yesterday (add-days time -1)]
-    (. yesterday adjustInto day-of-week)))
+(defn previous-same-day-of-week [^Temporal time ^DayOfWeek day-of-week]
+  (when (not (has-day-of-week? time))
+        (throw (ex-info (str (class time) " has no day of week.")
+                        {:conflict :class
+                         :value time})))
+  (when (not (has-year-month-day? time))
+    (throw (ex-info (str (class time) " has no date.")
+                    {:conflict :class
+                     :value time})))
+           
+           
+  (let [date (.query time (TemporalQueries/localDate))         
+        new-date (.with date  (TemporalAdjusters/previous day-of-week))]   
+    (.with time new-date)))
+
 
 (defn transitions
   "Sequence of time transitions after time, usually DST transistions,
@@ -835,6 +887,7 @@
     (throw (ex-info (str "Type  " (class time) " does not have time zone." )
                        {:value time
                         :conflict :class}))))
+
 
 
 (defn of-time-zone
