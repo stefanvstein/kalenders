@@ -15,7 +15,8 @@
             [kalenders.weekly :as weekly]
             [kalenders.monthly :as monthly]
             [kalenders.year-weekly :as year-weekly]
-            [kalenders.macros :refer :all]))
+            [kalenders.macros :refer :all]
+            [clojure.set :as set]))
 
 (defn combine [definitions]
   (->> (or (seq definitions)
@@ -35,28 +36,52 @@
             following-timestamp (time/just-after ending)]
         (cons real-beginning
               (searching/periods-forward definition following-timestamp))))))
-    
+
+(defn matching [defenitions start duration]
+  (let [end (time/add-duration start duration)]
+        (reduce (fn [a definition]
+              (let [hits (searching/hits-within definition start end)]
+                (->> (reduce (fn [a [start' duration']]
+                               (set/union a (set (definition start' duration'))))
+                             a
+                             hits))))
+                #{}
+                defenitions)))
+
+
+
+
+
 (defn once [from duration]
-  (fn [timestamp] (let [end (time/add-duration from duration)]
-                    (if (time/increasing? end timestamp)
-                      searching/ZERO
-                      [from duration]))))
+  (fn ([timestamp] (let [end (time/add-duration from duration)]
+                     (if (time/increasing? end timestamp)
+                       searching/ZERO
+                       [from duration])))
+    ([start d] [{:type :once :from from :duration duration}])))
 
 (defn between [from until]
    (if (time/increasing? until from)
       (between until from)
-      (fn between' [timestamp]
-        (if (time/increasing? until timestamp)
-          searching/ZERO
-          [from (duration/between from until)]))))
-                    
+      (fn between'
+        ([timestamp]
+         (if (time/increasing? until timestamp)
+           searching/ZERO
+           [from (duration/between from until)]))
+        ([start dur] [{:type :between :from from :until until}]))))
+
 (defn daily [from-time until-time]
-  (fn [t] (daily/daily from-time until-time t)))
+  (fn
+    ([t] (daily/daily from-time until-time t))
+    ([from duration] [{:type :daily
+                       :occurance from
+                       :from from-time
+                       :until until-time}])))
           
 (defn weekly
   "Returns a occurance "
   [fromDay fromTime untilDay untilTime]
-  (fn [t] (weekly/weekly fromDay fromTime untilDay untilTime t)))
+  (fn ([t] (weekly/weekly fromDay fromTime untilDay untilTime t))
+    ([from duration] [{:type weekly :from-day fromDay :from-time fromTime :until-day untilDay :until-time untilTime :occurence from}])))
 
 (defn year-weekly [from-week from-day from-time-of-day
                    until-week until-day until-time-of-day]
@@ -66,29 +91,35 @@
 
 (defn monthly
   [from-day from-time-of-day until-day until-time-of-day]
-  (fn [t] (monthly/monthly from-time-of-day until-day until-time-of-day t)))
+  (fn ([t] (monthly/monthly from-time-of-day until-day until-time-of-day t))
+    ([from duration] [{:type :monthly :from-day from-day :from-time from-time-of-day :until-day until-day :until-time until-time-of-day :occuence from}])))
 
 (defn begining-of-month [until-day until-time-of-day]
-  (fn [t] (monthly/monthly-from-start until-day until-time-of-day t)))
+  (fn ([t] (monthly/monthly-from-start until-day until-time-of-day t))
+    ([start duration] [{:type :beginning-of-month :until-day  until-day :until-time until-time-of-day :occurence start}])))
 
 (defn end-of-month [from-day from-time-of-day]
-  (fn [t] (monthly/monthly-until-end from-day from-time-of-day t)))
+  (fn ([t] (monthly/monthly-until-end from-day from-time-of-day t))
+    ([start duration] [{:type :end-of-month :from-day from-day :from-time from-time-of-day :occurence start}])))
 
 (defn days
   ([pred look-ahead-days]
-   (fn [timestamp]
-     (let [start (time/with-time-part timestamp (time/time-part 0 0 0))]
-       ((fn [days]
-          (let [date (-> start
-                         (time/add-days days))]
-            (if (and (| days < look-ahead-days)
-                    (pred date))
-              (let [day (time/with-time-part date (time/time-part 0 0))
-                    duration (duration/of-hours 24)]
-                [day duration])
-              (if (| days < look-ahead-days)
-                (recur (inc days))
-                searching/ZERO)))) 0))))
+   (fn ([timestamp]
+        (let [start (time/with-time-part timestamp (time/time-part 0 0 0))]
+          ((fn [days]
+             (let [date (-> start
+                            (time/add-days days))]
+               (if (and (| days < look-ahead-days)
+                        (pred date))
+                 (let [day (time/with-time-part date (time/time-part 0 0))
+                       duration (duration/of-hours 24)]
+                   [day duration])
+                 (if (| days < look-ahead-days)
+                   (recur (inc days))
+                   searching/ZERO)))) 0)))
+     ([start dur] (let [#_days #_(range (inc (duration/days-of dur)))]
+                    
+                    #{{:type (pred start) :date (time/date-part-of start)}}))))
   ([pred] (days pred (* 2 366))))
 
 (defn with [def1 def2])

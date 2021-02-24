@@ -3,7 +3,10 @@
             [clojure.test :refer :all]
             [kalenders.core :as c]
             [kalenders.duration :as duration]
-            [kalenders.time :as t])
+            [kalenders.time :as t]
+            [clojure.set :as set]
+            [kalenders.swedish :as swe]
+            [kalenders.time :as time])
   (:import java.time.DayOfWeek))
 
 (deftest once-test
@@ -110,3 +113,28 @@
             expected-2 [(t/of 2020 11 20, 11 00 00) d]] 
         (is (= (seq [expected-1 expected-2])
                a))))))
+
+(deftest matching-once
+  (let [start (t/of 2020 11 12)
+        dur (duration/of-hours 1)
+        start-within (t/of 2020 11 12 0 15)
+        dur-within (duration/of-seconds 200)
+        o2 (c/once  start-within dur-within)
+        o1 (c/once start dur)
+        o (c/combine [o1 o2])]
+    
+    (is (= #{{:type :once :from start-within :duration dur-within}
+             {:type :once :from start :duration dur}}
+           (c/matching [o] (t/of 2020 11 10) (duration/of-hours (* 3 23))))))
+  )
+
+(deftest matching-day
+  (let [start (t/of 2020 12 24 2)
+        dur (duration/of-hours (+ 22 24 24)) 
+        d (c/days swe/helgdag?)
+        ]
+    (is (= #{{:type :juldag :date (-> (time/of 2020 12 25)
+                                      (time/date-part-of))}
+             {:type :annandag-jul :date (-> (time/of 2020 12 26)
+                                            (time/date-part-of))}}
+           (c/matching [d] start dur)))))

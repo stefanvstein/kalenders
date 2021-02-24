@@ -10,6 +10,7 @@
   (:require [clojure.string :as string]
             [clojure.set :as set]))
 
+(def a ::foo) 
 (defn now [] ^ZonedDateTime
   (ZonedDateTime/now))
 

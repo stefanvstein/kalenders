@@ -14,6 +14,7 @@
                        (map (fn [[time duration]]
                               (str time " - " (t/add-duration time duration)))))]
     (println from-to)))
+
 (deftest tutorial
   (println "weekends")
   (let [weekends (k/weekly t/friday (t/time-part 16 0)

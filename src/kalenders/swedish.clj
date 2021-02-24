@@ -5,27 +5,31 @@
 
 (defn julafton? [time]
   (let [[_ m d] (time/year-month-day time)]
-    (and (= 12 m) (= 24 d))))
+    (and (= 12 m) (= 24 d)
+         :julafton)))
 
 (defn nyårsafton? [time]
   (let [[_ m d] (time/year-month-day time)]
-    (and (= 12 m) (= 31 d))))
+    (and (= 12 m) (= 31 d)
+         :nyårsafton)))
 
 (defn påskafton? [time]
   (let [[y m d] (time/year-month-day time)
         easter (easter/easter y)]
-    (= (time/date-part-of time)
-       (time/date-part-of (time/add-days easter -1)))))
+    (when (= (time/date-part-of time)
+             (time/date-part-of (time/add-days easter -1)))
+      :påskafton)))
 
 (defn midsommarafton? [time]
   (let [[y m d] (time/year-month-day time)]
-    (if (| y >= 1953)
-      (and (= 6 m)
-           (and (| d >= 19)
-                (| d <= 25))
-           (= time/friday (time/day-of-week time)))
-      (and (= d 23)
-           (= m 6)))))
+    (and (if (| y >= 1953)
+            (and (= 6 m)
+                 (| d >= 19)
+                 (| d <= 25)
+                 (= time/friday (time/day-of-week time)))
+            (and (= d 23)
+                 (= m 6)))
+      :midsommarafton)))
 
 (defn alla-helgons-dag? [time]
   (let [[y m d] (time/year-month-day time)]
@@ -35,7 +39,8 @@
                   (and (| d >= 1)
                        (| d <= 6)))
              (and (= 10 m)
-                  (= 31 d))))))
+                  (= 31 d)))
+         :alla-helgons-dag)))
 
 (defn alla-helgons-afton? [time]
   (let [[_ m d] (time/year-month-day time)]
@@ -45,67 +50,75 @@
                        (| d <= 5)))
              (and (= 10 m)
                   (or (= 30 d)
-                      (= 31 d)))))))
+                      (= 31 d))))
+         :alla-helogons-afton)))
 
 (defn midsommardag? [time]
   (let [[y m d] (time/year-month-day time)]
-    (if (| y >= 1953)
-      (and (= 6 m)
-           (and (| d >= 20)
-                (| d <= 26))
-           (= time/saturday (time/day-of-week time)))
-      (and (= 6 m)
-           (= 24 m)))))
+    (when (if (| y >= 1953)
+            (and (= 6 m)
+                 (and (| d >= 20)
+                      (| d <= 26))
+                 (= time/saturday (time/day-of-week time)))
+            (and (= 6 m)
+                 (= 24 m)))
+      :midsommardag)))
 
 (defn nyårsdag? [time]
   (let [[_ m d] (time/year-month-day time)]
-    (and (= 1 m) (= 1 d))))
+    (and (= 1 m) (= 1 d)
+         :nyårsdag)))
 
 (defn juldag? [time]
   (let [[_ m d] (time/year-month-day time)]
-    (and (= 12 m) (= 25 d))))
+    (and (= 12 m) (= 25 d)
+         :juldag)))
 
 (defn annandag-jul? [time]
   (let [[_ m d] (time/year-month-day time)]
-    (and (= 12 m) (= 26 d))))
+    (and (= 12 m) (= 26 d)
+         :annandag-jul)))
 
 (defn trettondag? [time]
   (let [[_ m d] (time/year-month-day time)]
-    (and (= 1 m) (= 6 d))))
-
-(defn trettondag? [time]
-  (let [[_ m d] (time/year-month-day time)]
-    (and (= 1 m) (= 6 d))))
+    (and (= 1 m) (= 6 d)
+         :trettondag)))
 
 (defn trettondagsafton? [time]
   (let [[_ m d] (time/year-month-day time)]
-    (and (= 1 m) (= 6 d))))
+    (and (= 1 m) (= 6 d)
+         :trettondagsafton)))
 
 (defn valborgsmässoafton? [time]
   (let [[y m d] (time/year-month-day time)]
-    (and (= 4 m) (= 30 d))))
+    (and (= 4 m) (= 30 d)
+         :valborgsmässoafton)))
 
 (defn första-maj? [time]
   (let [[y m d] (time/year-month-day time)]
-    (and (| y >= 1939) (= 5 m) (= 1 d))))
+    (and (| y >= 1939) (= 5 m) (= 1 d)
+         :första-maj)))
 
 (defn nationaldag? [time]
   (let [[y m d] (time/year-month-day time)]
-    (and (| y >= 2005) (= 6 m) (= 6 d))))
+    (and (| y >= 2005) (= 6 m) (= 6 d)
+         :nationaldag)))
 
 (defn pingstafton? [time]
   (let [[y m d] (time/year-month-day time)
         easter (easter/easter y)
         [_ mm dd] (time/year-month-day (time/add-days easter 48))]
     (and (= mm  m)
-         (= dd d))))
+         (= dd d)
+         :pingstafton)))
 
 (defn pingstdag? [time]
   (let [[y m d] (time/year-month-day time)
         easter (easter/easter y)
         [_ mm dd] (time/year-month-day (time/add-days easter 49))]
     (and (= mm  m)
-         (= dd d))))
+         (= dd d)
+         :pingstdag)))
 
 (defn annandag-pingst? [time]
   (let [[y m d] (time/year-month-day time)]
@@ -114,42 +127,48 @@
      (let [easter (easter/easter y)
            [_ mm dd] (time/year-month-day (time/add-days easter 50))]
        (and (= mm  m)
-            (= dd d))))))
+            (= dd d)))
+     :annandag-pingst)))
 
 (defn långfredag? [time]
   (let [[y m d] (time/year-month-day time)
         easter (easter/easter y)
         [_ mm dd] (time/year-month-day (time/add-days easter -2))]
     (and (= mm  m)
-         (= dd d))))
+         (= dd d)
+         :långfredag)))
 
 (defn skärtorsdag? [time]
   (let [[y m d] (time/year-month-day time)
         easter (easter/easter y)
         [_ mm dd] (time/year-month-day (time/add-days easter -3))]
     (and (= mm  m)
-         (= dd d))))
+         (= dd d)
+         :skärtorsdag)))
 
 (defn påskdag? [time]
   (let [[y m d] (time/year-month-day time)
         easter (easter/easter y)
         [_ mm dd] (time/year-month-day easter)]
     (and (= mm  m)
-         (= dd d))))
+         (= dd d)
+         :påskdag)))
 
 (defn annandag-påsk? [time]
   (let [[y m d] (time/year-month-day time)
         easter (easter/easter y)
         [_ mm dd] (time/year-month-day (time/add-days easter 1))]
-    (and (= mm  m)
-         (= dd d))))
+    (and (= mm m)
+         (= dd d)
+         :annandag-påsk)))
 
 (defn  kristi-himmelsfärdsdag? [time]
   (let [[y m d] (time/year-month-day time)
         easter (easter/easter y)
         [_ mm dd] (time/year-month-day (time/add-days easter 39))]
     (and (= mm  m)
-         (= dd d))))
+         (= dd d)
+         :kristi-himmelsfärdsdag)))
 
 (defn helgdagsafton? [time]
   (or (nyårsafton? time)
@@ -159,9 +178,8 @@
       (pingstafton? time)))
 
 (defn borgerlig-helgdag? [time]
-  (let [[y _ _] (time/year-month-day time)]
     (or (första-maj? time)
-        (nationaldag? time))))
+        (nationaldag? time)))
 
 (defn kristen-helgdag-förutom-söndag? [time]
   (or (nyårsdag? time)
@@ -178,7 +196,8 @@
       (annandag-pingst? time)))
 
 (defn kristen-helgdag? [time]
-  (or (= time/sunday (time/day-of-week time))
+  (or (when (= time/sunday (time/day-of-week time))
+        :söndag)
       (kristen-helgdag-förutom-söndag? time)))
 
 (defn helgdag? [time]
@@ -187,8 +206,8 @@
 
 (defn helg? [time]
   (let [day (time/day-of-week time)]
-    (or (= time/saturday day)
-        (= time/sunday day))))
+    (or (when (= time/saturday day) :lördag)
+        (when (= time/sunday day) :söndag))))
 
 (defn söndag-enligt-semesterlagen? [time]
   (or (helgdag? time)

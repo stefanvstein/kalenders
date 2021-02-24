@@ -69,11 +69,13 @@
       
 
 (defn either [a-definition b-definition]
-  (fn [timestamp]
-    (let [[start duration :as first-value] (find-closest a-definition b-definition timestamp)
-          end (time/add-duration start duration) 
-          following (time/just-after end)]
-      (discover a-definition b-definition first-value following))))
+  (fn
+    ([timestamp]
+     (let [[start duration :as first-value] (find-closest a-definition b-definition timestamp)
+           end (time/add-duration start duration) 
+           following (time/just-after end)]
+       (discover a-definition b-definition first-value following)))
+    ([start end] (apply conj (a-definition start end) (b-definition start end)))))
 
 (defn periods-forward [definition timestamp]
   (let [ next-occurance (definition timestamp)]
@@ -97,3 +99,12 @@
          (if stil-not-found
            (recur definition (time/just-before start) start ending)
            [previous-start (duration/between previous-start ending)])))))
+
+(defn hits-within [definition start end]
+  (->> (periods-forward definition start)
+       (take-while
+        (fn [[start' duration']]
+          (let [end' (time/add-duration start' duration')]
+            (time/ordered? start' end' end))))
+       (filter (fn [[start']]
+                 (time/ordered? start start')))))
