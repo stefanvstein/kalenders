@@ -5,7 +5,7 @@
 
 (defn første-nyttårsdag? [time]
   (let [[_ m d] (time/year-month-day time)]
-    (and (= 1 m) (= 1 d) :første-nyttårsdag)))
+    (and (= 1 m) (= 1 d) [:første-nyttårsdag])))
 
 (defn skjærtorsdag? [time]
   (let [[y m d] (time/year-month-day time)
@@ -13,7 +13,7 @@
         [_ mm dd] (time/year-month-day (time/add-days easter -3))]
     (and (= mm  m)
          (= dd d)
-         :skjærtorsdag)))
+         [:skjærtorsdag])))
 
 (defn langfredag? [time]
   (let [[y m d] (time/year-month-day time)
@@ -21,7 +21,7 @@
         [_ mm dd] (time/year-month-day (time/add-days easter -2))]
     (and (= mm  m)
          (= dd d)
-         :langfredag)))
+         [:langfredag])))
 
 (defn første-påskedag? [time]
   (let [[y m d] (time/year-month-day time)
@@ -29,7 +29,7 @@
         [_ mm dd] (time/year-month-day easter)]
     (and (= mm  m)
          (= dd d)
-         :første-påskedag)))
+         [:første-påskedag])))
 
 (defn andre-påskedag? [time]
   (let [[y m d] (time/year-month-day time)
@@ -37,7 +37,7 @@
         [_ mm dd] (time/year-month-day (time/add-days easter 1))]
     (and (= mm  m)
          (= dd d)
-         :andre-påskedag)))
+         [:andre-påskedag])))
 
 (defn kristi-himmelfartsdag? [time]
   (let [[y m d] (time/year-month-day time)
@@ -45,7 +45,7 @@
         [_ mm dd] (time/year-month-day (time/add-days easter 39))]
     (and (= mm  m)
          (= dd d)
-         :kristi-himmelfartsdag)))
+         [:kristi-himmelfartsdag])))
 
 (defn første-pinsedag? [time]
   (let [[y m d] (time/year-month-day time)
@@ -53,7 +53,7 @@
         [_ mm dd] (time/year-month-day (time/add-days easter 49))]
     (and (= mm  m)
          (= dd d)
-         :første-pinsedag)))
+         [:første-pinsedag])))
 
 (defn andre-pinsedag? [time]
   (let [[y m d] (time/year-month-day time)
@@ -61,15 +61,15 @@
         [_ mm dd] (time/year-month-day (time/add-days easter 50))]
     (and (= mm  m)
          (= dd d)
-         :andre-pinsedag)))
+         [:andre-pinsedag])))
 
 (defn første-juledag? [time]
   (let [[_ m d] (time/year-month-day time)]
-    (and (= 12 m) (= 25 d) :første-juledag)))
+    (and (= 12 m) (= 25 d) [:første-juledag])))
 
 (defn andre-juledag? [time]
   (let [[_ m d] (time/year-month-day time)]
-    (and (= 12 m) (= 26 d) :andre-juledag)))
+    (and (= 12 m) (= 26 d) [:andre-juledag])))
 
 (defn helligdag? [time]
   (or (første-nyttårsdag? time)
@@ -85,11 +85,11 @@
 
 (defn første-mai? [time]
   (let [[_ m d] (time/year-month-day time)]
-    (and (= 5 m) (= 1 d) :første-mai)))
+    (and (= 5 m) (= 1 d) [:første-mai])))
 
 (defn syttende-mai? [time]
   (let [[_ m d] (time/year-month-day time)]
-    (and (= 5 m) (= 17 d) :syttende-mai)))
+    (and (= 5 m) (= 17 d) [:syttende-mai])))
 
 (defn dymmelonsdag? [time]
   (let [[y m d] (time/year-month-day time)
@@ -98,15 +98,15 @@
                       (time/year-month-day ))]
     (and (= mm  m)
          (= dd d)
-         :dymmelonsdag)))
+         [:dymmelonsdag])))
 
 (defn julaften? [time]
   (let [[_ m d] (time/year-month-day time)]
-    (and (= 12 m) (= 24 d) :julaften)))
+    (and (= 12 m) (= 24 d) [:julaften])))
 
 (defn nyårsaften? [time]
   (let [[_ m d] (time/year-month-day time)]
-    (and (= 12 m) (= 31 d) :nyårsaften)))
+    (and (= 12 m) (= 31 d) [:nyårsaften])))
 
 (defn påskeaften? [time]
   (let [[y m d] (time/year-month-day time)
@@ -115,7 +115,7 @@
                       (time/year-month-day ))]
     (and (= mm  m)
          (= dd d)
-         :påskeaften)))
+         [:påskeaften])))
 
 (defn palmsøndag? [time]
   (let [[y m d] (time/year-month-day time)
@@ -124,7 +124,7 @@
                       (time/year-month-day ))]
     (and (= mm  m)
          (= dd d)
-         :palmsøndag)))
+         [:palmsøndag])))
 
 (defn fridag? [time]
   (or (første-mai? time)
@@ -145,7 +145,7 @@
      (| d >= 8)
      (| d <= 14)
      (= time/sunday (time/day-of-week time))
-     :morsdag)))
+     [:morsdag])))
 
 (defn farsdag? [time]
   (let [[_ m d] (time/year-month-day time)]
@@ -154,5 +154,5 @@
      (| d >= 8)
      (| d <= 14)
      (= time/sunday (time/day-of-week time))
-     :farsdag)))
+     [:farsdag])))
 

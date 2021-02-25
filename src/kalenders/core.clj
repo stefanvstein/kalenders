@@ -5,8 +5,10 @@
   a definition and a timestamp, starting with the ongoing occurence or
   next future occurence in relation to the timestamp, followed by the
   chronologic continuing.
-  A definition is a function that produces a [start-time duration] from
-  a timestamp. Definitions can be combined to produce complex
+  A definition is two functions. The first produces a [start-time duration] from
+  a timestamp. The second produces a description of fully covered definitions from
+  a [start-time duration] that tells what descriptions caused the occurence. 
+  Definitions can be combined to produce complex
   definitions of occurrence sequences"
   (:require [kalenders.daily :as daily]
             [kalenders.duration :as duration]
@@ -18,7 +20,7 @@
             [kalenders.macros :refer :all]
             [clojure.set :as set]))
 
-(defn combine [definitions]
+(defn combine [& definitions]
   (->> (or (seq definitions)
            [searching/ZERO])
        (reduce searching/either)))
@@ -117,9 +119,17 @@
                  (if (| days < look-ahead-days)
                    (recur (inc days))
                    searching/ZERO)))) 0)))
-     ([start dur] (let [#_days #_(range (inc (duration/days-of dur)))]
-                    
-                    #{{:type (pred start) :date (time/date-part-of start)}}))))
+     ([start dur] (let [days (range (duration/days-of dur))]
+                    (reduce (fn [a n]
+                              (let [start' (time/add-days start n)]
+                                (if-let [c (pred start')]
+                                  (apply conj
+                                         a
+                                         (map #(do {:type %
+                                                    :date (time/date-part-of start')})
+                                              c))
+                                  a)))
+                            #{} days)))))
   ([pred] (days pred (* 2 366))))
 
 (defn with [def1 def2])

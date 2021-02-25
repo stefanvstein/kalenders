@@ -31,7 +31,7 @@
  (let [start1 (t/now)
        duration (duration/of-seconds 2)
        start2 (t/add-duration start1 (duration/of-seconds 4))
-       definition (c/combine [(c/once start1 duration) (c/once start2 duration)])
+       definition (c/combine (c/once start1 duration) (c/once start2 duration))
        
        before (c/occurrences definition (t/add-seconds start1 -4))
        after (c/occurrences definition (t/add-seconds start1 4))
@@ -45,7 +45,7 @@
  (let [start1 (t/now)
        duration (duration/of-seconds 3)
        start2 (t/add-duration start1 (duration/of-seconds 1))
-       definition (c/combine [(c/once start1 duration) (c/once start2 duration)])
+       definition (c/combine (c/once start1 duration) (c/once start2 duration))
        
        before (c/occurrences definition (t/add-seconds start1 -4))
        after (c/occurrences definition (t/add-seconds start1 4))
@@ -121,7 +121,7 @@
         dur-within (duration/of-seconds 200)
         o2 (c/once  start-within dur-within)
         o1 (c/once start dur)
-        o (c/combine [o1 o2])]
+        o (c/combine o1 o2)]
     
     (is (= #{{:type :once :from start-within :duration dur-within}
              {:type :once :from start :duration dur}}
@@ -137,4 +137,11 @@
                                       (time/date-part-of))}
              {:type :annandag-jul :date (-> (time/of 2020 12 26)
                                             (time/date-part-of))}}
-           (c/matching [d] start dur)))))
+           (c/matching [d] start dur))))
+  (let [start1 (t/of 2020 12 25)
+        dur (duration/of-hours 24)
+        start2 (t/of 2020 12 26)
+        d (c/combine (c/days swe/juldag?)
+                     (c/days swe/annandag-jul?))]
+    (println (c/matching [d] start1 (duration/of-hours 48)))
+    ))

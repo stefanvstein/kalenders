@@ -29,7 +29,7 @@
         sportlov (k/year-weekly 9 t/monday midnight
                                 9 t/sunday (t/just-before midnight))
         holidays (k/days swe/helgdag? 365)
-        closed (k/combine [weekends daily sportlov holidays])
+        closed (k/combine weekends daily sportlov holidays)
         ]
     (print-from closed (t/now) 5)
     (is (= 1 1))))
