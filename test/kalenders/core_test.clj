@@ -125,7 +125,7 @@
     
     (is (= #{{:type :once :from start-within :duration dur-within}
              {:type :once :from start :duration dur}}
-           (c/matching [o] (t/of 2020 11 10) (duration/of-hours (* 3 23))))))
+           (c/matching o (t/of 2020 11 10) (duration/of-hours (* 3 23))))))
   )
 
 (deftest matching-day
@@ -137,11 +137,11 @@
                                       (time/date-part-of))}
              {:type :annandag-jul :date (-> (time/of 2020 12 26)
                                             (time/date-part-of))}}
-           (c/matching [d] start dur))))
+           (c/matching d start dur))))
   (let [start1 (t/of 2020 12 25)
         dur (duration/of-hours 24)
         start2 (t/of 2020 12 26)
         d (c/combine (c/days swe/juldag?)
                      (c/days swe/annandag-jul?))]
-    (println (c/matching [d] start1 (duration/of-hours 48)))
+    (println (c/matching d start1 (duration/of-hours 48)))
     ))

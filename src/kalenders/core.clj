@@ -39,20 +39,13 @@
         (cons real-beginning
               (searching/periods-forward definition following-timestamp))))))
 
-(defn matching [defenitions start duration]
+(defn matching [definition start duration]
   (let [end (time/add-duration start duration)]
-        (reduce (fn [a definition]
-              (let [hits (searching/hits-within definition start end)]
-                (->> (reduce (fn [a [start' duration']]
-                               (set/union a (set (definition start' duration'))))
-                             a
-                             hits))))
-                #{}
-                defenitions)))
-
-
-
-
+    (let [hits (searching/hits-within definition start end)]
+      (reduce (fn [a [start' duration']]
+                (set/union a (set (definition start' duration'))))
+              #{}
+              hits))))
 
 (defn once [from duration]
   (fn ([timestamp] (let [end (time/add-duration from duration)]
